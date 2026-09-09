@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -u
+
+readonly calamares='/usr/bin/calamares'
+readonly finalizer='/usr/local/libexec/kaskados-finalize-installation'
+
+if [[ ! -x "${calamares}" ]]; then
+    printf 'KaskadOS: Calamares не найден.\n' >&2
+    sleep 10
+    exit 127
+fi
+
+"${calamares}"
+calamares_result=$?
+
+if [[ -x "${finalizer}" ]]; then
+    "${finalizer}" || true
+fi
+
+exit "${calamares_result}"

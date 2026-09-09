@@ -1,0 +1,1701 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"runtime/debug"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/geolocation"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/log"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/matugen"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/apppicker"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/bluez"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/brightness"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/clipboard"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/cups"
+	serverDbus "github.com/AvengeMedia/DankMaterialShell/core/internal/server/dbus"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/evdev"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/files"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/freedesktop"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/location"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/loginctl"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/models"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/network"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/software"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/sysupdate"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/tailscale"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/thememode"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/trayrecovery"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/wallpaper"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/wayland"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/windowsapps"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/wlcontext"
+	"github.com/AvengeMedia/dankgo/ipc"
+	"github.com/AvengeMedia/dankgo/paths"
+	"github.com/AvengeMedia/dankgo/syncmap"
+)
+
+const APIVersion = 28
+
+var CLIVersion = "dev"
+
+type Capabilities struct {
+	Capabilities []string `json:"capabilities"`
+}
+
+type ServerInfo struct {
+	APIVersion   int      `json:"apiVersion"`
+	CLIVersion   string   `json:"cliVersion,omitempty"`
+	Capabilities []string `json:"capabilities"`
+}
+
+type ServiceEvent struct {
+	Service string `json:"service"`
+	Data    any    `json:"data"`
+}
+
+var networkManager *network.Manager
+var loginctlManager *loginctl.Manager
+var freedesktopManager *freedesktop.Manager
+var waylandManager *wayland.Manager
+var bluezManager *bluez.Manager
+var appPickerManager *apppicker.Manager
+var cupsManager *cups.Manager
+var tailscaleManager *tailscale.Manager
+var brightnessManager *brightness.Manager
+var evdevManager *evdev.Manager
+var clipboardManager *clipboard.Manager
+var dbusManager *serverDbus.Manager
+var wlContext *wlcontext.SharedContext
+var themeModeManager *thememode.Manager
+var wallpaperManager *wallpaper.Manager
+var trayRecoveryManager *trayrecovery.Manager
+var locationManager *location.Manager
+var sysUpdateManager *sysupdate.Manager
+var softwareManager *software.Manager
+var windowsAppsManager *windowsapps.Manager
+var filesManager *files.Manager
+var geoClientInstance geolocation.Client
+
+const dbusClientID = "dms-dbus-client"
+
+var capabilitySubscribers syncmap.Map[string, chan ServerInfo]
+var cupsSubscribers syncmap.Map[string, bool]
+var cupsSubscriberCount atomic.Int32
+
+var appPaths = paths.New("danklinux")
+
+func GetSocketPath() string {
+	return appPaths.SocketPath()
+}
+
+func InitializeNetworkManager() error {
+	manager, err := network.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize network manager: %v", err)
+		return err
+	}
+
+	networkManager = manager
+
+	log.Info("Network manager initialized")
+	return nil
+}
+
+func InitializeLoginctlManager() error {
+	manager, err := loginctl.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize loginctl manager: %v", err)
+		return err
+	}
+
+	loginctlManager = manager
+
+	log.Info("Loginctl manager initialized")
+	return nil
+}
+
+func InitializeFreedeskManager() error {
+	manager, err := freedesktop.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize freedesktop manager: %v", err)
+		return err
+	}
+
+	freedesktopManager = manager
+	matugen.SetColorSchemeEchoHook(manager.ExpectColorSchemeEcho)
+
+	log.Info("Freedesktop manager initialized")
+	return nil
+}
+
+func InitializeWaylandManager() error {
+	log.Info("Attempting to initialize Wayland gamma control...")
+
+	if wlContext == nil {
+		ctx, err := wlcontext.New()
+		if err != nil {
+			log.Errorf("Failed to create shared Wayland context: %v", err)
+			return err
+		}
+		wlContext = ctx
+	}
+
+	config := wayland.DefaultConfig()
+	manager, err := wayland.NewManager(wlContext.Display(), config)
+	if err != nil {
+		log.Errorf("Failed to initialize wayland manager: %v", err)
+		return err
+	}
+
+	waylandManager = manager
+
+	log.Info("Wayland gamma control initialized successfully")
+	return nil
+}
+
+func InitializeBluezManager() error {
+	manager, err := bluez.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize bluez manager: %v", err)
+		return err
+	}
+
+	bluezManager = manager
+
+	log.Info("Bluez manager initialized")
+	return nil
+}
+
+func InitializeAppPickerManager() error {
+	manager := apppicker.NewManager()
+	appPickerManager = manager
+	log.Info("AppPicker manager initialized")
+	return nil
+}
+
+func InitializeCupsManager() error {
+	manager, err := cups.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize cups manager: %v", err)
+		return err
+	}
+
+	cupsManager = manager
+
+	log.Info("CUPS manager initialized")
+	return nil
+}
+
+func InitializeBrightnessManager() error {
+	manager, err := brightness.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize brightness manager: %v", err)
+		return err
+	}
+
+	brightnessManager = manager
+
+	log.Info("Brightness manager initialized")
+	return nil
+}
+
+func InitializeEvdevManager() error {
+	manager, err := evdev.InitializeManager()
+	if err != nil {
+		log.Warnf("Failed to initialize evdev manager: %v", err)
+		return err
+	}
+
+	evdevManager = manager
+
+	log.Info("Evdev manager initialized")
+	return nil
+}
+
+func InitializeClipboardManager() error {
+	log.Info("Attempting to initialize clipboard manager...")
+
+	if wlContext == nil {
+		ctx, err := wlcontext.New()
+		if err != nil {
+			log.Errorf("Failed to create shared Wayland context: %v", err)
+			return err
+		}
+		wlContext = ctx
+	}
+
+	config := clipboard.LoadConfig()
+	manager, err := clipboard.NewManager(wlContext, config)
+	if err != nil {
+		log.Errorf("Failed to initialize clipboard manager: %v", err)
+		return err
+	}
+
+	clipboardManager = manager
+
+	log.Info("Clipboard manager initialized successfully")
+	return nil
+}
+
+func InitializeDbusManager() error {
+	manager, err := serverDbus.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize dbus manager: %v", err)
+		return err
+	}
+
+	dbusManager = manager
+
+	log.Info("DBus manager initialized")
+	return nil
+}
+
+func InitializeThemeModeManager() error {
+	manager := thememode.NewManager()
+	themeModeManager = manager
+
+	log.Info("Theme mode automation manager initialized")
+	return nil
+}
+
+func InitializeWallpaperManager() error {
+	wallpaperManager = wallpaper.NewManager()
+
+	log.Info("Wallpaper rotation scheduler initialized")
+	return nil
+}
+
+func InitializeTrayRecoveryManager() error {
+	manager, err := trayrecovery.NewManager()
+	if err != nil {
+		return err
+	}
+
+	trayRecoveryManager = manager
+
+	log.Info("TrayRecovery manager initialized")
+	return nil
+}
+
+func InitializeLocationManager(geoClient geolocation.Client) error {
+	manager, err := location.NewManager(geoClient)
+	if err != nil {
+		log.Warnf("Failed to initialize location manager: %v", err)
+		return err
+	}
+
+	locationManager = manager
+
+	log.Info("Location manager initialized")
+	return nil
+}
+
+func InitializeSysUpdateManager() error {
+	manager, err := sysupdate.NewManager()
+	if err != nil {
+		log.Warnf("Failed to initialize sysupdate manager: %v", err)
+		return err
+	}
+
+	sysUpdateManager = manager
+
+	log.Info("Sysupdate manager initialized")
+	return nil
+}
+
+func InitializeSoftwareManager() {
+	softwareManager = software.NewManager()
+	log.Info("Software catalog manager initialized")
+}
+
+func InitializeFilesManager() {
+	filesManager = files.NewManager()
+	log.Info("File manager backend initialized")
+}
+
+func InitializeWindowsAppsManager() error {
+	manager, err := windowsapps.NewManager()
+	if err != nil {
+		return err
+	}
+	windowsAppsManager = manager
+	log.Info("Windows applications manager initialized")
+	return nil
+}
+
+func routeHandler(_ context.Context, conn *models.Conn, req ipc.Request, _ *ipc.Subscriber) {
+	routeRequestRecovered(conn, models.Request(req))
+}
+
+func subscribeHandler(_ context.Context, conn *models.Conn, req ipc.Request, _ *ipc.Subscriber) {
+	switch req.Method {
+	case "subscribe":
+		routeRequestRecovered(conn, models.Request(req))
+	default:
+		models.RespondError(conn, req.ID, fmt.Sprintf("unknown method: %s", req.Method))
+	}
+}
+
+// routeRequestRecovered keeps a panicking handler from taking down the whole daemon
+func routeRequestRecovered(conn *models.Conn, req models.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("RouteRequest panic recovered: method=%s panic=%v\n%s", req.Method, r, debug.Stack())
+			models.RespondError(conn, req.ID, "internal server error")
+		}
+	}()
+	RouteRequest(conn, req)
+}
+
+func getCapabilities() Capabilities {
+	caps := []string{}
+
+	if networkManager != nil {
+		caps = append(caps, "network")
+	}
+
+	if loginctlManager != nil {
+		caps = append(caps, "loginctl")
+	}
+
+	if freedesktopManager != nil {
+		caps = append(caps, "freedesktop")
+	}
+
+	if waylandManager != nil {
+		caps = append(caps, "gamma")
+	}
+
+	if bluezManager != nil {
+		caps = append(caps, "bluetooth")
+	}
+
+	if appPickerManager != nil {
+		caps = append(caps, "browser")
+	}
+
+	if cupsManager != nil {
+		caps = append(caps, "cups")
+	}
+
+	if tailscaleManager != nil && tailscaleManager.IsAvailable() {
+		caps = append(caps, "tailscale")
+	}
+
+	if brightnessManager != nil {
+		caps = append(caps, "brightness")
+	}
+
+	if evdevManager != nil {
+		caps = append(caps, "evdev")
+	}
+
+	if clipboardManager != nil {
+		caps = append(caps, "clipboard")
+	}
+
+	if themeModeManager != nil {
+		caps = append(caps, "theme.auto")
+	}
+
+	if wallpaperManager != nil {
+		caps = append(caps, "wallpaper")
+	}
+
+	if dbusManager != nil {
+		caps = append(caps, "dbus")
+	}
+
+	if sysUpdateManager != nil {
+		caps = append(caps, "sysupdate")
+	}
+
+	if softwareManager != nil {
+		caps = append(caps, "software")
+	}
+
+	if windowsAppsManager != nil {
+		caps = append(caps, "windows")
+	}
+
+	if filesManager != nil {
+		caps = append(caps, "files")
+	}
+
+	return Capabilities{Capabilities: caps}
+}
+
+func getServerInfo() ServerInfo {
+	caps := []string{}
+
+	if networkManager != nil {
+		caps = append(caps, "network")
+	}
+
+	if loginctlManager != nil {
+		caps = append(caps, "loginctl")
+	}
+
+	if freedesktopManager != nil {
+		caps = append(caps, "freedesktop")
+	}
+
+	if waylandManager != nil {
+		caps = append(caps, "gamma")
+	}
+
+	if bluezManager != nil {
+		caps = append(caps, "bluetooth")
+	}
+
+	if appPickerManager != nil {
+		caps = append(caps, "browser")
+	}
+
+	if cupsManager != nil {
+		caps = append(caps, "cups")
+	}
+
+	if tailscaleManager != nil && tailscaleManager.IsAvailable() {
+		caps = append(caps, "tailscale")
+	}
+
+	if brightnessManager != nil {
+		caps = append(caps, "brightness")
+	}
+
+	if evdevManager != nil {
+		caps = append(caps, "evdev")
+	}
+
+	if clipboardManager != nil {
+		caps = append(caps, "clipboard")
+	}
+
+	if themeModeManager != nil {
+		caps = append(caps, "theme.auto")
+	}
+
+	if wallpaperManager != nil {
+		caps = append(caps, "wallpaper")
+	}
+
+	if locationManager != nil {
+		caps = append(caps, "location")
+	}
+
+	if dbusManager != nil {
+		caps = append(caps, "dbus")
+	}
+
+	if sysUpdateManager != nil {
+		caps = append(caps, "sysupdate")
+	}
+
+	if softwareManager != nil {
+		caps = append(caps, "software")
+	}
+
+	if windowsAppsManager != nil {
+		caps = append(caps, "windows")
+	}
+
+	if filesManager != nil {
+		caps = append(caps, "files")
+	}
+
+	return ServerInfo{
+		APIVersion:   APIVersion,
+		CLIVersion:   CLIVersion,
+		Capabilities: caps,
+	}
+}
+
+func notifyCapabilityChange() {
+	info := getServerInfo()
+	capabilitySubscribers.Range(func(key string, ch chan ServerInfo) bool {
+		select {
+		case ch <- info:
+		default:
+		}
+		return true
+	})
+}
+
+func handleSubscribe(conn *models.Conn, req models.Request) {
+	clientID := fmt.Sprintf("meta-client-%p", conn)
+
+	dbusClient := dbusClientID
+	if id, ok := models.Get[string](req, "clientId"); ok && id != "" {
+		dbusClient = id
+	}
+
+	var services []string
+	if servicesParam, ok := models.Get[[]any](req, "services"); ok {
+		for _, s := range servicesParam {
+			if str, ok := s.(string); ok {
+				services = append(services, str)
+			}
+		}
+	}
+
+	if len(services) == 0 {
+		services = []string{"all"}
+	}
+
+	subscribeAll := false
+	for _, s := range services {
+		if s == "all" {
+			subscribeAll = true
+			break
+		}
+	}
+
+	var wg sync.WaitGroup
+	eventChan := make(chan ServiceEvent, 256)
+	stopChan := make(chan struct{})
+
+	capChan := make(chan ServerInfo, 64)
+	capabilitySubscribers.Store(clientID+"-capabilities", capChan)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer capabilitySubscribers.Delete(clientID + "-capabilities")
+
+		for {
+			select {
+			case info, ok := <-capChan:
+				if !ok {
+					return
+				}
+				select {
+				case eventChan <- ServiceEvent{Service: "server", Data: info}:
+				case <-stopChan:
+					return
+				}
+			case <-stopChan:
+				return
+			}
+		}
+	}()
+
+	shouldSubscribe := func(service string) bool {
+		if subscribeAll {
+			return true
+		}
+		for _, s := range services {
+			if s == service {
+				return true
+			}
+		}
+		return false
+	}
+
+	if shouldSubscribe("network") && networkManager != nil {
+		wg.Add(1)
+		netChan := networkManager.Subscribe(clientID + "-network")
+		go func() {
+			defer wg.Done()
+			defer networkManager.Unsubscribe(clientID + "-network")
+
+			initialState := networkManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "network", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-netChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "network", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("network.credentials") && networkManager != nil {
+		wg.Add(1)
+		credChan := networkManager.SubscribeCredentials(clientID + "-credentials")
+		go func() {
+			defer wg.Done()
+			defer networkManager.UnsubscribeCredentials(clientID + "-credentials")
+
+			for {
+				select {
+				case prompt, ok := <-credChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "network.credentials", Data: prompt}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("loginctl") && loginctlManager != nil {
+		wg.Add(1)
+		loginChan := loginctlManager.Subscribe(clientID + "-loginctl")
+		go func() {
+			defer wg.Done()
+			defer loginctlManager.Unsubscribe(clientID + "-loginctl")
+
+			initialState := loginctlManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "loginctl", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-loginChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "loginctl", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("freedesktop") && freedesktopManager != nil {
+		wg.Add(1)
+		freedesktopChan := freedesktopManager.Subscribe(clientID + "-freedesktop")
+		go func() {
+			defer wg.Done()
+			defer freedesktopManager.Unsubscribe(clientID + "-freedesktop")
+
+			initialState := freedesktopManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "freedesktop", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-freedesktopChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "freedesktop", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("freedesktop.screensaver") && freedesktopManager != nil {
+		wg.Add(1)
+		screensaverChan := freedesktopManager.SubscribeScreensaver(clientID + "-screensaver")
+		go func() {
+			defer wg.Done()
+			defer freedesktopManager.UnsubscribeScreensaver(clientID + "-screensaver")
+
+			initialState := freedesktopManager.GetScreensaverState()
+			select {
+			case eventChan <- ServiceEvent{Service: "freedesktop.screensaver", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-screensaverChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "freedesktop.screensaver", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("gamma") && waylandManager != nil {
+		wg.Add(1)
+		waylandChan := waylandManager.Subscribe(clientID + "-gamma")
+		go func() {
+			defer wg.Done()
+			defer waylandManager.Unsubscribe(clientID + "-gamma")
+
+			initialState := waylandManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "gamma", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-waylandChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "gamma", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("theme.auto") && themeModeManager != nil {
+		wg.Add(1)
+		themeAutoChan := themeModeManager.Subscribe(clientID + "-theme-auto")
+		go func() {
+			defer wg.Done()
+			defer themeModeManager.Unsubscribe(clientID + "-theme-auto")
+
+			initialState := themeModeManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "theme.auto", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-themeAutoChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "theme.auto", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("wallpaper") && wallpaperManager != nil {
+		wg.Add(1)
+		wallpaperChan := wallpaperManager.Subscribe(clientID + "-wallpaper")
+		go func() {
+			defer wg.Done()
+			defer wallpaperManager.Unsubscribe(clientID + "-wallpaper")
+
+			initialState := wallpaperManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "wallpaper", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-wallpaperChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "wallpaper", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("bluetooth") && bluezManager != nil {
+		wg.Add(1)
+		bluezChan := bluezManager.Subscribe(clientID + "-bluetooth")
+		go func() {
+			defer wg.Done()
+			defer bluezManager.Unsubscribe(clientID + "-bluetooth")
+
+			initialState := bluezManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "bluetooth", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-bluezChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "bluetooth", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("bluetooth.pairing") && bluezManager != nil {
+		wg.Add(1)
+		pairingChan := bluezManager.SubscribePairing(clientID + "-pairing")
+		go func() {
+			defer wg.Done()
+			defer bluezManager.UnsubscribePairing(clientID + "-pairing")
+
+			for {
+				select {
+				case prompt, ok := <-pairingChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "bluetooth.pairing", Data: prompt}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("browser") && appPickerManager != nil {
+		wg.Add(1)
+		appPickerChan := appPickerManager.Subscribe(clientID + "-browser")
+		go func() {
+			defer wg.Done()
+			defer appPickerManager.Unsubscribe(clientID + "-browser")
+
+			for {
+				select {
+				case event, ok := <-appPickerChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "browser.open_requested", Data: event}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("cups") {
+		cupsSubscribers.Store(clientID+"-cups", true)
+		count := cupsSubscriberCount.Add(1)
+
+		if count == 1 {
+			if err := InitializeCupsManager(); err != nil {
+				log.Warnf("Failed to initialize CUPS manager for subscription: %v", err)
+			} else {
+				notifyCapabilityChange()
+			}
+		}
+
+		if cupsManager != nil {
+			wg.Add(1)
+			cupsChan := cupsManager.Subscribe(clientID + "-cups")
+			go func() {
+				defer wg.Done()
+				defer func() {
+					cupsManager.Unsubscribe(clientID + "-cups")
+					cupsSubscribers.Delete(clientID + "-cups")
+					count := cupsSubscriberCount.Add(-1)
+
+					if count == 0 {
+						log.Info("Last CUPS subscriber disconnected, shutting down CUPS manager")
+						if cupsManager != nil {
+							cupsManager.Close()
+							cupsManager = nil
+							notifyCapabilityChange()
+						}
+					}
+				}()
+
+				initialState := cupsManager.GetState()
+				select {
+				case eventChan <- ServiceEvent{Service: "cups", Data: initialState}:
+				case <-stopChan:
+					return
+				}
+
+				for {
+					select {
+					case state, ok := <-cupsChan:
+						if !ok {
+							return
+						}
+						select {
+						case eventChan <- ServiceEvent{Service: "cups", Data: state}:
+						case <-stopChan:
+							return
+						}
+					case <-stopChan:
+						return
+					}
+				}
+			}()
+		}
+	}
+
+	if shouldSubscribe("tailscale") && tailscaleManager != nil && tailscaleManager.IsAvailable() {
+		wg.Add(1)
+		tailscaleChan := tailscaleManager.Subscribe(clientID + "-tailscale")
+		go func() {
+			defer wg.Done()
+			defer tailscaleManager.Unsubscribe(clientID + "-tailscale")
+
+			initialState := tailscaleManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "tailscale", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-tailscaleChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "tailscale", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("brightness") && brightnessManager != nil {
+		wg.Add(2)
+		brightnessStateChan := brightnessManager.Subscribe(clientID + "-brightness-state")
+		brightnessUpdateChan := brightnessManager.SubscribeUpdates(clientID + "-brightness-updates")
+
+		go func() {
+			defer wg.Done()
+			defer brightnessManager.Unsubscribe(clientID + "-brightness-state")
+
+			initialState := brightnessManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "brightness", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-brightnessStateChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "brightness", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			defer brightnessManager.UnsubscribeUpdates(clientID + "-brightness-updates")
+
+			for {
+				select {
+				case update, ok := <-brightnessUpdateChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "brightness.update", Data: update}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("evdev") && evdevManager != nil {
+		wg.Add(1)
+		evdevChan := evdevManager.Subscribe(clientID + "-evdev")
+		go func() {
+			defer wg.Done()
+			defer evdevManager.Unsubscribe(clientID + "-evdev")
+
+			initialState := evdevManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "evdev", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-evdevChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "evdev", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("clipboard") && clipboardManager != nil {
+		wg.Add(1)
+		clipboardChan := clipboardManager.Subscribe(clientID + "-clipboard")
+		go func() {
+			defer wg.Done()
+			defer clipboardManager.Unsubscribe(clientID + "-clipboard")
+
+			initialState := clipboardManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "clipboard", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-clipboardChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "clipboard", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("sysupdate") && sysUpdateManager != nil {
+		wg.Add(1)
+		sysupdateChan := sysUpdateManager.Subscribe(clientID + "-sysupdate")
+		go func() {
+			defer wg.Done()
+			defer sysUpdateManager.Unsubscribe(clientID + "-sysupdate")
+
+			initialState := sysUpdateManager.GetState()
+			select {
+			case eventChan <- ServiceEvent{Service: "sysupdate", Data: initialState}:
+			case <-stopChan:
+				return
+			}
+
+			for {
+				select {
+				case state, ok := <-sysupdateChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "sysupdate", Data: state}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("files") && filesManager != nil {
+		wg.Add(1)
+		filesChannel := filesManager.Subscribe(clientID + "-files")
+		go func() {
+			defer wg.Done()
+			defer filesManager.Unsubscribe(clientID + "-files")
+			for {
+				select {
+				case event, ok := <-filesChannel:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "files", Data: event}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	if shouldSubscribe("dbus") && dbusManager != nil {
+		wg.Add(1)
+		dbusChan := dbusManager.SubscribeSignals(dbusClient)
+		go func() {
+			defer wg.Done()
+			defer dbusManager.UnsubscribeSignals(dbusClient)
+
+			for {
+				select {
+				case event, ok := <-dbusChan:
+					if !ok {
+						return
+					}
+					select {
+					case eventChan <- ServiceEvent{Service: "dbus", Data: event}:
+					case <-stopChan:
+						return
+					}
+				case <-stopChan:
+					return
+				}
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(eventChan)
+	}()
+
+	info := getServerInfo()
+	if err := conn.WriteResponse(models.Response[ServiceEvent]{
+		ID:     req.ID,
+		Result: &ServiceEvent{Service: "server", Data: info},
+	}); err != nil {
+		close(stopChan)
+		return
+	}
+
+	for event := range eventChan {
+		if err := conn.WriteResponse(models.Response[ServiceEvent]{
+			ID:     req.ID,
+			Result: &event,
+		}); err != nil {
+			close(stopChan)
+			return
+		}
+	}
+}
+
+func cleanupManagers() {
+	if networkManager != nil {
+		networkManager.Close()
+	}
+	if loginctlManager != nil {
+		loginctlManager.Close()
+	}
+	if freedesktopManager != nil {
+		freedesktopManager.Close()
+	}
+	if waylandManager != nil {
+		waylandManager.Close()
+	}
+	if bluezManager != nil {
+		bluezManager.Close()
+	}
+	if appPickerManager != nil {
+		appPickerManager.Close()
+	}
+	if cupsManager != nil {
+		cupsManager.Close()
+	}
+	if brightnessManager != nil {
+		brightnessManager.Close()
+	}
+	if evdevManager != nil {
+		evdevManager.Close()
+	}
+	if clipboardManager != nil {
+		clipboardManager.Close()
+	}
+	if dbusManager != nil {
+		dbusManager.Close()
+	}
+	if themeModeManager != nil {
+		themeModeManager.Close()
+	}
+	if wallpaperManager != nil {
+		wallpaperManager.Close()
+	}
+	if trayRecoveryManager != nil {
+		trayRecoveryManager.Close()
+	}
+	if wlContext != nil {
+		wlContext.Close()
+	}
+	if locationManager != nil {
+		locationManager.Close()
+	}
+	if sysUpdateManager != nil {
+		sysUpdateManager.Close()
+	}
+	if geoClientInstance != nil {
+		geoClientInstance.Close()
+	}
+	if tailscaleManager != nil {
+		tailscaleManager.Close()
+	}
+}
+
+type Server struct {
+	ipc *ipc.Server
+}
+
+func New() *Server {
+	return &Server{ipc: ipc.NewServer(ipc.Config{
+		AppName:          appPaths.Name,
+		APIVersion:       APIVersion,
+		CapabilitiesFunc: func() []string { return getCapabilities().Capabilities },
+		MaxLineSize:      64 * 1024 * 1024, // large clipboard payloads
+		SubscribeHandler: subscribeHandler,
+	}, routeHandler)}
+}
+
+func (s *Server) Listen() error { return s.ipc.Listen() }
+
+func (s *Server) SocketPath() string { return s.ipc.SocketPath() }
+
+func (s *Server) Close() {
+	s.ipc.Close()
+}
+
+func Start(printDocs bool) error {
+	s := New()
+	if err := s.Listen(); err != nil {
+		return err
+	}
+	return s.Serve(printDocs)
+}
+
+func (s *Server) Serve(printDocs bool) error {
+	defer s.ipc.Close()
+	defer cleanupManagers()
+
+	// Tailscale manager always starts — reconnects internally via WatchIPNBus.
+	// The capability is only advertised once tailscaled is reachable; the
+	// callback wakes capability subscribers so QML clients see it transition.
+	tailscaleManager = tailscale.NewManager("")
+	tailscaleManager.SetAvailabilityCallback(func(bool) {
+		notifyCapabilityChange()
+	})
+
+	log.Infof("DMS API Server listening on: %s", s.ipc.SocketPath())
+	log.Infof("API Version: %d", APIVersion)
+	log.Info("Protocol: JSON over Unix socket")
+	log.Info("Request format: {\"id\": <any>, \"method\": \"...\", \"params\": {...}}")
+	log.Info("Response format: {\"id\": <any>, \"result\": {...}} or {\"id\": <any>, \"error\": \"...\"}")
+	log.Info("")
+	if printDocs {
+		log.Info("Available methods:")
+		log.Info("  ping          - Test connection")
+		log.Info("  getServerInfo - Get server info (API version and capabilities)")
+		log.Info("  subscribe     - Subscribe to multiple services (params: services [default: all])")
+		log.Info("Network:")
+		log.Info(" network.getState            - Get current network state")
+		log.Info(" network.wifi.scan           - Scan for WiFi networks (params: device?)")
+		log.Info(" network.wifi.networks       - Get WiFi network list")
+		log.Info(" network.wifi.connect        - Connect to WiFi (params: ssid, password?, username?, device?, eapMethod?, phase2Auth?, caCertPath?, clientCertPath?, privateKeyPath?, useSystemCACerts?)")
+		log.Info(" network.wifi.disconnect     - Disconnect WiFi (params: device?)")
+		log.Info(" network.wifi.forget         - Forget network (params: ssid)")
+		log.Info(" network.wifi.toggle         - Toggle WiFi radio")
+		log.Info(" network.wifi.enable         - Enable WiFi")
+		log.Info(" network.wifi.disable        - Disable WiFi")
+		log.Info(" network.wifi.setAutoconnect - Set network autoconnect (params: ssid, autoconnect)")
+		log.Info(" network.ethernet.connect    - Connect Ethernet")
+		log.Info(" network.ethernet.connect.config - Connect Ethernet to a specific configuration")
+		log.Info(" network.ethernet.disconnect - Disconnect Ethernet")
+		log.Info(" network.vpn.profiles        - List VPN profiles")
+		log.Info(" network.vpn.active          - List active VPN connections")
+		log.Info(" network.vpn.connect         - Connect VPN (params: uuidOrName|name|uuid, singleActive?)")
+		log.Info(" network.vpn.disconnect      - Disconnect VPN (params: uuidOrName|name|uuid)")
+		log.Info(" network.vpn.disconnectAll   - Disconnect all VPNs")
+		log.Info(" network.vpn.clearCredentials - Clear saved VPN credentials (params: uuidOrName|name|uuid)")
+		log.Info(" network.vpn.plugins         - List available VPN plugins")
+		log.Info(" network.vpn.import          - Import VPN from file (params: file|path, name?)")
+		log.Info(" network.vpn.getConfig       - Get VPN configuration (params: uuid|name|uuidOrName)")
+		log.Info(" network.vpn.updateConfig    - Update VPN configuration (params: uuid, name?, autoconnect?, data?)")
+		log.Info(" network.vpn.delete          - Delete VPN connection (params: uuid|name|uuidOrName)")
+		log.Info(" network.preference.set      - Set preference (params: preference [auto|wifi|ethernet])")
+		log.Info(" network.info                - Get network info (params: ssid)")
+		log.Info(" network.credentials.submit  - Submit credentials for prompt (params: token, secrets, save?)")
+		log.Info(" network.credentials.cancel  - Cancel credential prompt (params: token)")
+		log.Info(" network.subscribe           - Subscribe to network state changes (streaming)")
+		log.Info("Loginctl:")
+		log.Info(" loginctl.getState           - Get current session state")
+		log.Info(" loginctl.lock               - Lock session")
+		log.Info(" loginctl.unlock             - Unlock session")
+		log.Info(" loginctl.activate           - Activate session")
+		log.Info(" loginctl.setIdleHint        - Set idle hint (params: idle)")
+		log.Info(" loginctl.setLockBeforeSuspend - Set lock before suspend (params: enabled)")
+		log.Info(" loginctl.setSleepInhibitorEnabled - Enable/disable sleep inhibitor (params: enabled)")
+		log.Info(" loginctl.lockerReady        - Signal locker UI is ready (releases sleep inhibitor)")
+		log.Info(" loginctl.terminate          - Terminate session")
+		log.Info(" loginctl.subscribe          - Subscribe to session state changes (streaming)")
+		log.Info("Freedesktop:")
+		log.Info(" freedesktop.getState                  - Get accounts & settings state")
+		log.Info(" freedesktop.accounts.setIconFile      - Set profile icon (params: path)")
+		log.Info(" freedesktop.accounts.setRealName      - Set real name (params: name)")
+		log.Info(" freedesktop.accounts.setEmail         - Set email (params: email)")
+		log.Info(" freedesktop.accounts.setLanguage      - Set language (params: language)")
+		log.Info(" freedesktop.accounts.setLocation      - Set location (params: location)")
+		log.Info(" freedesktop.accounts.getUserIconFile  - Get user icon (params: username)")
+		log.Info(" freedesktop.settings.getColorScheme   - Get color scheme")
+		log.Info(" freedesktop.settings.setIconTheme     - Set icon theme (params: iconTheme)")
+		log.Info("Wayland:")
+		log.Info(" wayland.gamma.getState                - Get current gamma control state")
+		log.Info(" wayland.gamma.setTemperature          - Set temperature range (params: low, high)")
+		log.Info(" wayland.gamma.setLocation             - Set location (params: latitude, longitude)")
+		log.Info(" wayland.gamma.setManualTimes          - Set manual times (params: sunrise, sunset)")
+		log.Info(" wayland.gamma.setGamma                - Set gamma value (params: gamma)")
+		log.Info(" wayland.gamma.setEnabled              - Enable/disable gamma control (params: enabled)")
+		log.Info(" wayland.gamma.subscribe               - Subscribe to gamma state changes (streaming)")
+		log.Info("Theme automation:")
+		log.Info(" theme.auto.getState                   - Get current theme automation state")
+		log.Info(" theme.auto.setEnabled                 - Enable/disable theme automation (params: enabled)")
+		log.Info(" theme.auto.setMode                    - Set automation mode (params: mode [time|location])")
+		log.Info(" theme.auto.setSchedule                - Set time schedule (params: startHour, startMinute, endHour, endMinute)")
+		log.Info(" theme.auto.setLocation                - Set location (params: latitude, longitude)")
+		log.Info(" theme.auto.setUseIPLocation           - Use IP location (params: use)")
+		log.Info(" theme.auto.trigger                    - Trigger immediate re-evaluation")
+		log.Info(" theme.auto.subscribe                  - Subscribe to theme automation state changes (streaming)")
+		log.Info("Bluetooth:")
+		log.Info(" bluetooth.getState                    - Get current bluetooth state")
+		log.Info(" bluetooth.startDiscovery              - Start device discovery")
+		log.Info(" bluetooth.stopDiscovery               - Stop device discovery")
+		log.Info(" bluetooth.setPowered                  - Set adapter power state (params: powered)")
+		log.Info(" bluetooth.pair                        - Pair with device (params: device)")
+		log.Info(" bluetooth.connect                     - Connect to device (params: device)")
+		log.Info(" bluetooth.disconnect                  - Disconnect from device (params: device)")
+		log.Info(" bluetooth.remove                      - Remove/unpair device (params: device)")
+		log.Info(" bluetooth.trust                       - Trust device (params: device)")
+		log.Info(" bluetooth.untrust                     - Untrust device (params: device)")
+		log.Info(" bluetooth.pairing.submit              - Submit pairing response (params: token, secrets?, accept?)")
+		log.Info(" bluetooth.pairing.cancel              - Cancel pairing prompt (params: token)")
+		log.Info(" bluetooth.subscribe                   - Subscribe to bluetooth state changes (streaming)")
+		log.Info("CUPS:")
+		log.Info(" cups.getPrinters                      - Get printers list")
+		log.Info(" cups.getJobs                          - Get non-completed jobs list (params: printerName)")
+		log.Info(" cups.pausePrinter                     - Pause printer (params: printerName)")
+		log.Info(" cups.resumePrinter                    - Resume printer (params: printerName)")
+		log.Info(" cups.cancelJob                        - Cancel job (params: printerName, jobID)")
+		log.Info(" cups.purgeJobs                        - Cancel all jobs (params: printerName)")
+		log.Info("Brightness:")
+		log.Info(" brightness.getState                   - Get current brightness state for all devices")
+		log.Info(" brightness.setBrightness              - Set device brightness (params: device, percent)")
+		log.Info(" brightness.increment                  - Increment device brightness (params: device, step?)")
+		log.Info(" brightness.decrement                  - Decrement device brightness (params: device, step?)")
+		log.Info(" brightness.rescan                     - Rescan for brightness devices (e.g., after plugging in monitor)")
+		log.Info(" brightness.subscribe                  - Subscribe to brightness state changes (streaming)")
+		log.Info("   Subscription events:")
+		log.Info("     - brightness       : Full device list (on rescan, DDC discovery, device changes)")
+		log.Info("     - brightness.update: Single device update (on brightness change for efficiency)")
+		log.Info("Evdev:")
+		log.Info(" evdev.getState                        - Get current evdev state (caps lock)")
+		log.Info(" evdev.subscribe                       - Subscribe to evdev state changes (streaming)")
+		log.Info("Clipboard:")
+		log.Info(" clipboard.getState                    - Get clipboard state (enabled, history, current)")
+		log.Info(" clipboard.getHistory                  - Get clipboard history with previews")
+		log.Info(" clipboard.getEntry                    - Get full entry by ID (params: id)")
+		log.Info(" clipboard.deleteEntry                 - Delete entry by ID (params: id)")
+		log.Info(" clipboard.clearHistory                - Clear all clipboard history")
+		log.Info(" clipboard.copy                        - Copy text to clipboard (params: text)")
+		log.Info(" clipboard.paste                       - Get current clipboard text")
+		log.Info(" clipboard.search                      - Search history (params: query?, mimeType?, isImage?, limit?, offset?, before?, after?)")
+		log.Info(" clipboard.getConfig                   - Get clipboard configuration")
+		log.Info(" clipboard.setConfig                   - Set configuration (params: maxHistory?, maxEntrySize?, autoClearDays?, clearAtStartup?)")
+		log.Info(" clipboard.subscribe                   - Subscribe to clipboard state changes (streaming)")
+		log.Info("Location:")
+		log.Info(" location.getState                      - Get current location state")
+		log.Info(" location.subscribe                     - Subscribe to location changes (streaming)")
+		log.Info("")
+	}
+	log.Info("Initializing managers...")
+	log.Info("")
+
+	go func() {
+		switch err := InitializeNetworkManager(); {
+		case err == nil:
+			notifyCapabilityChange()
+			return
+		case errors.Is(err, network.ErrNoNetworkBackend):
+			log.Warn("No supported network backend present; skipping retries")
+			return
+		default:
+			log.Warnf("Network manager unavailable, will retry: %v", err)
+		}
+
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for range 10 {
+			<-ticker.C
+			if networkManager != nil {
+				return
+			}
+			switch err := InitializeNetworkManager(); {
+			case err == nil:
+				log.Info("Network manager initialized")
+				notifyCapabilityChange()
+				return
+			case errors.Is(err, network.ErrNoNetworkBackend):
+				log.Warn("No supported network backend present; stopping retries")
+				return
+			}
+		}
+		log.Warn("Network manager still unavailable after retries; giving up")
+	}()
+
+	loginctlReady := make(chan struct{})
+	freedesktopReady := make(chan struct{})
+
+	go func() {
+		defer close(loginctlReady)
+		if err := InitializeLoginctlManager(); err != nil {
+			log.Warnf("Loginctl manager unavailable: %v", err)
+		} else {
+			notifyCapabilityChange()
+		}
+	}()
+
+	go func() {
+		defer close(freedesktopReady)
+		if err := InitializeFreedeskManager(); err != nil {
+			log.Warnf("Freedesktop manager unavailable: %v", err)
+		} else if freedesktopManager != nil {
+			freedesktopManager.NotifySubscribers()
+			notifyCapabilityChange()
+		}
+	}()
+
+	// Bridge loginctl lock state to the freedesktop/gnome screensaver
+	// ActiveChanged signal so apps like Bitwarden can detect screen lock.
+	go func() {
+		<-loginctlReady
+		<-freedesktopReady
+
+		if loginctlManager == nil || freedesktopManager == nil {
+			return
+		}
+
+		ch := loginctlManager.Subscribe("dms-lock-bridge")
+		defer loginctlManager.Unsubscribe("dms-lock-bridge")
+
+		initial := loginctlManager.GetState()
+		lastLocked := initial.Locked
+		freedesktopManager.SetScreenLockActive(lastLocked)
+
+		for state := range ch {
+			if state.Locked != lastLocked {
+				lastLocked = state.Locked
+				freedesktopManager.SetScreenLockActive(lastLocked)
+			}
+		}
+	}()
+
+	if err := InitializeWaylandManager(); err != nil {
+		log.Warnf("Wayland manager unavailable: %v", err)
+	}
+
+	if err := InitializeThemeModeManager(); err != nil {
+		log.Warnf("Theme mode manager unavailable: %v", err)
+	} else {
+		notifyCapabilityChange()
+		go func() {
+			<-loginctlReady
+			if loginctlManager == nil {
+				return
+			}
+			themeModeManager.WatchLoginctl(loginctlManager)
+		}()
+	}
+
+	if err := InitializeWallpaperManager(); err != nil {
+		log.Warnf("Wallpaper scheduler unavailable: %v", err)
+	} else {
+		notifyCapabilityChange()
+		go func() {
+			<-loginctlReady
+			if loginctlManager == nil {
+				return
+			}
+			wallpaperManager.WatchLoginctl(loginctlManager)
+		}()
+	}
+
+	go func() {
+		<-loginctlReady
+		if loginctlManager == nil {
+			return
+		}
+		if err := InitializeTrayRecoveryManager(); err != nil {
+			log.Warnf("TrayRecovery manager unavailable: %v", err)
+		} else {
+			trayRecoveryManager.WatchLoginctl(loginctlManager)
+		}
+	}()
+
+	go func() {
+		geoClient := geolocation.NewClient()
+		geoClientInstance = geoClient
+
+		if waylandManager != nil {
+			waylandManager.SetGeoClient(geoClient)
+		}
+		if themeModeManager != nil {
+			themeModeManager.SetGeoClient(geoClient)
+		}
+
+		if err := InitializeLocationManager(geoClient); err != nil {
+			log.Warnf("Location manager unavailable: %v", err)
+		} else {
+			notifyCapabilityChange()
+		}
+	}()
+
+	go func() {
+		if err := InitializeBluezManager(); err != nil {
+			log.Warnf("Bluez manager unavailable: %v", err)
+		} else {
+			notifyCapabilityChange()
+		}
+	}()
+
+	if err := InitializeAppPickerManager(); err != nil {
+		log.Debugf("AppPicker manager unavailable: %v", err)
+	}
+
+	fatalErrChan := make(chan error, 1)
+	if wlContext != nil {
+		go func() {
+			err := <-wlContext.FatalError()
+			fatalErrChan <- fmt.Errorf("wayland context fatal error: %w", err)
+		}()
+	}
+
+	go func() {
+		if err := InitializeBrightnessManager(); err != nil {
+			log.Warnf("Brightness manager unavailable: %v", err)
+		} else {
+			notifyCapabilityChange()
+		}
+	}()
+
+	go func() {
+		if err := InitializeEvdevManager(); err != nil {
+			log.Debugf("Evdev manager unavailable: %v", err)
+		} else {
+			notifyCapabilityChange()
+		}
+	}()
+
+	go func() {
+		if err := InitializeClipboardManager(); err != nil {
+			log.Warnf("Clipboard manager unavailable: %v", err)
+		}
+		if wlContext != nil {
+			wlContext.Start()
+			log.Info("Wayland event dispatcher started")
+		}
+	}()
+
+	go func() {
+		if err := InitializeDbusManager(); err != nil {
+			log.Warnf("DBus manager unavailable: %v", err)
+		} else {
+			notifyCapabilityChange()
+		}
+	}()
+
+	if err := InitializeSysUpdateManager(); err != nil {
+		log.Warnf("Sysupdate manager unavailable: %v", err)
+	}
+	InitializeSoftwareManager()
+	InitializeFilesManager()
+	if err := InitializeWindowsAppsManager(); err != nil {
+		log.Warnf("Windows applications manager unavailable: %v", err)
+	}
+
+	log.Info("")
+	log.Infof("Ready! Capabilities: %v", getCapabilities().Capabilities)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	serveErrChan := make(chan error, 1)
+	go func() {
+		serveErrChan <- s.ipc.Serve(ctx)
+	}()
+
+	select {
+	case err := <-serveErrChan:
+		return err
+	case err := <-fatalErrChan:
+		return err
+	}
+}

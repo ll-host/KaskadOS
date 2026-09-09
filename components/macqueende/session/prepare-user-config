@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root=${1:?usage: prepare-user-config REPO_ROOT [CONFIG_DIR]}
+user_config_dir=${2:-${XDG_CONFIG_HOME:-$HOME/.config}}
+macqueen_config="$user_config_dir/macqueenrc"
+
+mkdir -p "$user_config_dir"
+
+if [[ ! -f "$macqueen_config" ]]; then
+    cp "$repo_root/config/macqueenrc" "$macqueen_config"
+fi
+if [[ ! -f "$user_config_dir/macqueenglobals" ]]; then
+    cp "$repo_root/config/macqueenglobals" "$user_config_dir/macqueenglobals"
+fi
+
+# Releases before WorkspaceDefaultsVersion=1 inherited KWin's one-desktop
+# fallback. Migrate that generated default exactly once. Counts already chosen
+# by the user are preserved, and future launches never change the value.
+if command -v kreadconfig6 >/dev/null && command -v kwriteconfig6 >/dev/null; then
+    defaults_version=$(
+        kreadconfig6 \
+            --file "$macqueen_config" \
+            --group MacqueenDE \
+            --key WorkspaceDefaultsVersion \
+            --default 0
+    )
+    [[ "$defaults_version" =~ ^[0-9]+$ ]] || defaults_version=0
+
+    if (( defaults_version < 1 )); then
+        desktop_count=$(
+            kreadconfig6 \
+                --file "$macqueen_config" \
+                --group Desktops \
+                --key Number \
+                --default 1
+        )
+        [[ "$desktop_count" =~ ^[0-9]+$ ]] || desktop_count=1
+
+        if (( desktop_count <= 1 )); then
+            kwriteconfig6 \
+                --file "$macqueen_config" \
+                --group Desktops \
+                --key Number 5
+            kwriteconfig6 \
+                --file "$macqueen_config" \
+                --group Desktops \
+                --key Rows 1
+        fi
+
+        kwriteconfig6 \
+            --file "$macqueen_config" \
+            --group MacqueenDE \
+            --key WorkspaceDefaultsVersion 1
+    fi
+fi

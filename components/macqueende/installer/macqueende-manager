@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo=${MACQUEENDE_GITHUB_REPO:-ll-host/KaskadOS}
+component_path=${MACQUEENDE_REPOSITORY_PATH:-components/macqueende}
+release_tag=${MACQUEENDE_RELEASE_TAG:-macqueende-rolling}
+raw_installer="https://raw.githubusercontent.com/$repo/main/$component_path/installer/install-github.sh"
+info_file=/opt/macqueende/INSTALL_INFO
+
+if [[ -t 1 ]]; then
+    red=$'\e[31m'
+    green=$'\e[32m'
+    yellow=$'\e[33m'
+    blue=$'\e[34m'
+    bold=$'\e[1m'
+    dim=$'\e[2m'
+    reset=$'\e[0m'
+else
+    red= green= yellow= blue= bold= dim= reset=
+fi
+
+line()
+{
+    printf '%s\n' '────────────────────────────────────────────────────'
+}
+
+clear_screen()
+{
+    [[ -t 1 ]] && printf '\033[2J\033[H'
+}
+
+read_choice()
+{
+    local prompt=$1
+    local value
+    printf '%s' "$prompt" >/dev/tty
+    IFS= read -r value </dev/tty
+    printf '%s' "$value"
+}
+
+pause()
+{
+    printf '\nНажмите Enter, чтобы продолжить...' >/dev/tty
+    IFS= read -r _ </dev/tty
+}
+
+info_value()
+{
+    local key=$1
+    [[ -r "$info_file" ]] || return 0
+    sed -n "s/^${key}=//p" "$info_file" | head -n1
+}
+
+executable_status()
+{
+    local expected=$1
+    local process_exe resolved
+    expected=$(readlink -f "$expected" 2>/dev/null || printf '%s' "$expected")
+    for process_exe in /proc/[0-9]*/exe; do
+        resolved=$(readlink -f "$process_exe" 2>/dev/null || true)
+        if [[ "$resolved" == "$expected" ]]; then
+            printf '%sработает%s' "$green" "$reset"
+            return
+        fi
+    done
+    printf '%sостановлен%s' "$dim" "$reset"
+}
+
+command_status()
+{
+    local command_name=$1
+    if pgrep -x "$command_name" >/dev/null 2>&1; then
+        printf '%sработает%s' "$green" "$reset"
+        return
+    fi
+    printf '%sостановлен%s' "$dim" "$reset"
+}
+
+latest_binary_version()
+{
+    local api asset
+    api="https://api.github.com/repos/$repo/releases/tags/$release_tag?cache_bust=$(date +%s)"
+    asset=$(curl -fsSL \
+        -H 'Accept: application/vnd.github+json' \
+        -H 'Cache-Control: no-cache' \
+        "$api" |
+        sed -n 's/.*"name":[[:space:]]*"\(macqueende-[^"]*-x86_64\.tar\.zst\)".*/\1/p' |
+        head -n1)
+    asset=${asset#macqueende-}
+    asset=${asset%-x86_64.tar.zst}
+    printf '%s\n' "$asset"
+}
+
+latest_source_commit()
+{
+    curl -fsSL \
+        -H 'Accept: application/vnd.github+json' \
+        -H 'Cache-Control: no-cache' \
+        "https://api.github.com/repos/$repo/commits/main?cache_bust=$(date +%s)" |
+        sed -n 's/^[[:space:]]*"sha":[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' |
+        head -n1
+}
+
+show_status()
+{
+    local method version commit method_label
+    method=$(info_value METHOD)
+    version=$(info_value VERSION)
+    commit=$(info_value SOURCE_COMMIT)
+    case "$method" in
+        source) method_label='сборка из исходников' ;;
+        binary) method_label='готовый бинарник' ;;
+        *) method_label='неизвестно' ;;
+    esac
+
+    printf '%s%sMacqueenDE Manager%s\n' "$bold" "$blue" "$reset"
+    line
+    printf 'Версия:       %s%s%s\n' "$bold" "${version:-не установлена}" "$reset"
+    printf 'Установка:    %s\n' "$method_label"
+    [[ -z "$commit" ]] ||
+        printf 'Коммит:       %.12s\n' "$commit"
+    line
+    printf 'Macqueen:     %s\n' \
+        "$(executable_status '/opt/macqueende/build/compositor/bin/macqueen')"
+    printf 'Quickshell:   %s\n' \
+        "$(command_status qs)"
+    printf 'DMS backend:  %s\n' \
+        "$(executable_status '/opt/macqueende/shell/MolniyaMacqueenShell/core/bin/dms')"
+    printf 'Portal:       %s\n' \
+        "$(executable_status '/opt/macqueende/build/portal/bin/xdg-desktop-portal-macqueen')"
+    line
+}
+
+run_installer()
+{
+    local method=$1
+    local tmp
+    tmp=$(mktemp)
+    if ! curl -fsSL "$raw_installer?manager=$(date +%s)" -o "$tmp"; then
+        rm -f -- "$tmp"
+        printf '%sНе удалось загрузить установщик.%s\n' "$red" "$reset" >&2
+        return 1
+    fi
+    if ! MACQUEENDE_INSTALL_MODE="$method" bash "$tmp"; then
+        rm -f -- "$tmp"
+        printf '%sОбновление завершилось с ошибкой.%s\n' "$red" "$reset" >&2
+        return 1
+    fi
+    rm -f -- "$tmp"
+}
+
+check_updates()
+{
+    local method version commit latest latest_commit choice
+    method=$(info_value METHOD)
+    version=$(info_value VERSION)
+    commit=$(info_value SOURCE_COMMIT)
+
+    printf '\n%sПроверка обновлений...%s\n' "$bold" "$reset"
+    latest=$(latest_binary_version || true)
+    latest_commit=$(latest_source_commit || true)
+    if [[ -z "$latest" || -z "$latest_commit" ]]; then
+        printf '%sНе удалось получить информацию с GitHub.%s\n' "$red" "$reset"
+        pause
+        return
+    fi
+
+    printf 'Установлено:      %s (%s)\n' "${version:-неизвестно}" "${method:-неизвестно}"
+    printf 'Rolling-бинарник: %s\n' "$latest"
+    printf 'Исходники main:   %.12s\n' "$latest_commit"
+
+    if [[ "$method" == binary && "$version" == "$latest" ]]; then
+        printf '%sБинарная версия уже актуальна.%s\n' "$green" "$reset"
+    elif [[ "$method" == source && "$commit" == "$latest_commit" ]]; then
+        printf '%sСборка из исходников уже актуальна.%s\n' "$green" "$reset"
+    else
+        printf '%sДоступно обновление.%s\n' "$yellow" "$reset"
+    fi
+
+    printf '\n%sКак обновить?%s\n' "$bold" "$reset"
+    printf '  1) Собрать свежую версию из исходников\n'
+    printf '  2) Установить свежий rolling-бинарник\n'
+    printf '  0) Назад\n'
+    choice=$(read_choice 'Выбор: ')
+    case "$choice" in
+        1) run_installer source; pause ;;
+        2) run_installer binary; pause ;;
+        0) ;;
+        *) printf '%sНеверный выбор.%s\n' "$red" "$reset"; sleep 1 ;;
+    esac
+}
+
+remove_macqueen()
+{
+    local choice
+    printf '\nБудут удалены MacqueenDE, его запись из SDDM и сохранённые\n'
+    printf 'предыдущие системные сборки. Пользовательские настройки останутся.\n'
+    if [[ -n $(info_value BUILD_PACKAGES) ]]; then
+        printf 'Build-пакеты, поставленные установщиком, также будут удалены,\n'
+        printf 'если они не нужны другим программам.\n'
+    fi
+    if [[ $(info_value MANAGED_FLAMESHOT) == 1 ]]; then
+        printf 'Flameshot, поставленный установщиком, также будет удалён.\n'
+    fi
+    printf '\n  1) Подтвердить удаление\n'
+    printf '  0) Отмена\n'
+    choice=$(read_choice 'Выбор: ')
+    [[ "$choice" == 1 ]] || return
+    /opt/macqueende/installer/uninstall-release.sh
+    printf '\n%sMacqueenDE удалён.%s\n' "$green" "$reset"
+    exit 0
+}
+
+main()
+{
+    [[ -r "$info_file" ]] || {
+        printf '%sMacqueenDE не установлен или INSTALL_INFO отсутствует.%s\n' \
+            "$red" "$reset" >&2
+        exit 1
+    }
+    if [[ ${1:-} == "--status" ]]; then
+        show_status
+        exit 0
+    fi
+    [[ -r /dev/tty ]] || {
+        echo "macqueende-manager requires an interactive terminal." >&2
+        exit 1
+    }
+
+    while true; do
+        clear_screen
+        show_status
+        printf '\n  1) Удалить MacqueenDE\n'
+        printf '  2) Проверить обновления\n'
+        printf '  3) Обновить статусы процессов\n'
+        printf '  0) Выход\n\n'
+        case "$(read_choice 'Выбор: ')" in
+            1) remove_macqueen ;;
+            2) check_updates ;;
+            3) ;;
+            0) exit 0 ;;
+            *) printf '%sНеверный выбор.%s\n' "$red" "$reset"; sleep 1 ;;
+        esac
+    done
+}
+
+main "$@"

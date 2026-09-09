@@ -1,0 +1,15 @@
+populate_kaskados() {
+    if usr/bin/pacman-key -l >/dev/null 2>&1; then
+        usr/bin/pacman-key --populate kaskados
+    fi
+}
+
+post_install() {
+    if [ -x usr/bin/pacman-key ]; then
+        populate_kaskados
+    fi
+}
+
+post_upgrade() {
+    populate_kaskados
+}

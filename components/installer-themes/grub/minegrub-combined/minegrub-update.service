@@ -1,0 +1,10 @@
+[Unit]
+Description=Обновление текста темы Minegrub
+After=hibernate.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /boot/grub/themes/minegrub/update_theme.py
+
+[Install]
+WantedBy=multi-user.target hibernate.target

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=MolniyaMacqueenShell
+GenericName=Desktop Shell
+Comment=Material 3 desktop shell for the Macqueen compositor
+Exec=dms run
+Icon=danklogo
+Terminal=false
+NoDisplay=true
+StartupNotify=false
+Categories=Utility;

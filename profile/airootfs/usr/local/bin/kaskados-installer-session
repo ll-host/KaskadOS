@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -u
+
+readonly compositor='/opt/kaskados-installer/bin/kaskad-installer'
+readonly session='/usr/local/bin/kaskados-run-calamares'
+readonly defaults='/usr/share/kaskados-installer/config'
+readonly session_root='/run/kaskados-installer'
+
+if [[ ! -x "${compositor}" || ! -x "${session}" ]]; then
+    printf 'KaskadOS: компоненты live-установщика не найдены.\n' >&2
+    sleep 10
+    exit 127
+fi
+
+install -d -m 0700 "${session_root}" "${session_root}/config"
+install -m 0600 "${defaults}/kaskadinstallerrc" "${session_root}/config/kaskadinstallerrc"
+install -m 0600 "${defaults}/kaskadinstallerrulesrc" "${session_root}/config/kaskadinstallerrulesrc"
+
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/0}"
+install -d -m 0700 "${XDG_RUNTIME_DIR}"
+export XDG_CONFIG_HOME="${session_root}/config"
+export XDG_CACHE_HOME="${session_root}/cache"
+export XDG_CURRENT_DESKTOP='KaskadOS-Installer'
+export XDG_SESSION_DESKTOP='KaskadOS-Installer'
+export XDG_SESSION_TYPE='wayland'
+unset LC_ALL
+export LANG='ru_RU.UTF-8'
+export LANGUAGE='ru_RU:ru'
+export QT_QPA_PLATFORM='wayland'
+export QT_WAYLAND_DISABLE_WINDOWDECORATION='1'
+export XCURSOR_THEME='breeze_cursors'
+export XCURSOR_SIZE='24'
+export LD_LIBRARY_PATH='/opt/kaskados-installer/bin'
+export PATH="/opt/kaskados-installer/bin:${PATH}"
+
+unset DISPLAY WAYLAND_DISPLAY
+
+exec dbus-run-session -- "${compositor}" \
+    --drm \
+    --socket kaskados-installer-0 \
+    --lock \
+    --no-global-shortcuts \
+    --exit-with-session "${session}"

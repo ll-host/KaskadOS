@@ -1,0 +1,5 @@
+[Default Applications]
+inode/directory=io.kaskados.Files.desktop
+
+[Added Associations]
+inode/directory=io.kaskados.Files.desktop;

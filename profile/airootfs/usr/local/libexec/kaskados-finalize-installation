@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+readonly state_file='/run/kaskados-installer/install-target'
+readonly source_log='/var/log/Calamares.log'
+reboot_requested=0
+[[ "${1:-}" == '--reboot' ]] && reboot_requested=1
+
+finish_result=0
+mount_dir=''
+
+cleanup() {
+    if [[ -n "${mount_dir}" ]]; then
+        mountpoint -q -- "${mount_dir}" && umount -- "${mount_dir}" || true
+        rmdir -- "${mount_dir}" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
+replace_log() {
+    local destination="$1"
+    local owner="$2"
+    local group="$3"
+    local mode="$4"
+    local temporary="${destination}.new.$$"
+
+    install -D -m "${mode}" -o "${owner}" -g "${group}" \
+        "${source_log}" "${temporary}" || return
+    mv -f -- "${temporary}" "${destination}"
+}
+
+if [[ -f "${state_file}" && -s "${source_log}" ]]; then
+    ROOT_SOURCE=''
+    ROOT_FSTYPE=''
+    ROOT_OPTIONS=''
+    TARGET_USER=''
+    source "${state_file}"
+
+    if [[ -z "${ROOT_SOURCE}" || -z "${ROOT_FSTYPE}" \
+          || -z "${ROOT_OPTIONS}" \
+          || ! "${TARGET_USER}" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+        printf 'KaskadOS: повреждены сведения о разделе установки.\n' >&2
+        finish_result=2
+    else
+        mount_dir="$(mktemp -d /run/kaskados-installer/finalize.XXXXXX)" || finish_result=$?
+        if (( finish_result == 0 )); then
+            mount -t "${ROOT_FSTYPE}" -o "${ROOT_OPTIONS}" -- \
+                "${ROOT_SOURCE}" "${mount_dir}" || finish_result=$?
+        fi
+        if (( finish_result == 0 )); then
+            target_user_id="$(awk -F: -v user="${TARGET_USER}" \
+                '$1 == user { print $3; exit }' "${mount_dir}/etc/passwd")"
+            target_wheel_id="$(awk -F: '$1 == "wheel" { print $3; exit }' \
+                "${mount_dir}/etc/group")"
+            if [[ ! "${target_user_id}" =~ ^[0-9]+$ \
+                  || ! "${target_wheel_id}" =~ ^[0-9]+$ ]]; then
+                printf 'KaskadOS: не удалось определить владельцев журналов.\n' >&2
+                finish_result=2
+            fi
+        fi
+        if (( finish_result == 0 )); then
+            replace_log "${mount_dir}/var/log/Calamares.log" 0 \
+                "${target_wheel_id}" 0600 || finish_result=$?
+            if (( finish_result == 0 )) \
+                && [[ -d "${mount_dir}/home/${TARGET_USER}" ]]; then
+                replace_log "${mount_dir}/home/${TARGET_USER}/installation.log" \
+                    "${target_user_id}" "${target_wheel_id}" 0640 \
+                    || finish_result=$?
+            fi
+        fi
+        if (( finish_result == 0 )); then
+            sync -f "${mount_dir}/var/log/Calamares.log" 2>/dev/null || sync
+        fi
+        if mountpoint -q -- "${mount_dir}"; then
+            umount -- "${mount_dir}" || finish_result=$?
+        fi
+        rmdir -- "${mount_dir}" 2>/dev/null || true
+        mount_dir=''
+        (( finish_result == 0 )) && rm -f -- "${state_file}"
+    fi
+fi
+
+if (( reboot_requested )); then
+    systemctl -i reboot
+    reboot_result=$?
+    (( finish_result == 0 )) && finish_result=${reboot_result}
+fi
+
+exit "${finish_result}"

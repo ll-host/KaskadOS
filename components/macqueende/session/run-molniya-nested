@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root=${MACQUEENDE_ROOT:?MACQUEENDE_ROOT is not set}
+backend="$repo_root/shell/MolniyaMacqueenShell/core/bin/dms"
+shell_dir="$repo_root/shell/MolniyaMacqueenShell/quickshell"
+
+if [[ ! -x "$backend" ]]; then
+    echo "run-molniya-nested: missing $backend; run make dev in the shell core" >&2
+    exit 1
+fi
+
+if [[ ! -f "$shell_dir/shell.qml" ]]; then
+    echo "run-molniya-nested: missing $shell_dir/shell.qml" >&2
+    exit 1
+fi
+
+# A nested test must not replace the host desktop portal. The compositor has
+# already exported its own WAYLAND_DISPLAY to this child process.
+export QT_NO_XDG_DESKTOP_PORTAL=1
+exec "$backend" run -c "$shell_dir"

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2020 Adriaan de Groot <groot@kde.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+---
+$schema: https://json-schema.org/schema#
+$id: https://calamares.io/schemas/locale
+additionalProperties: false
+type: object
+properties:
+    region: { type: string,
+        enum: [
+            Africa,
+            America,
+            Antarctica,
+            Arctic,
+            Asia,
+            Atlantic,
+            Australia,
+            Europe,
+            Indian,
+            Pacific
+            ]
+        }
+    zone: { type: string }
+    useSystemTimezone: { type: boolean, default: false }
+
+    adjustLiveTimezone: { type: boolean, default: true }
+
+    localeGenPath: { type: string }
+
+    localeTimezones:
+        type: object
+        minProperties: 1
+        additionalProperties: { type: string, minLength: 3 }
+
+required: [ region, zone ]

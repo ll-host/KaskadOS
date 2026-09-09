@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly TARGET_ROOT="${1:-}"
+readonly NVIDIA_PACKAGES=(
+  nvidia-580xx-dkms
+  nvidia-580xx-utils
+  lib32-nvidia-580xx-utils
+  nvidia-prime
+)
+
+if [[ -z "${TARGET_ROOT}" || ! -d "${TARGET_ROOT}/etc" ]]; then
+  printf 'Не найден корень устанавливаемой системы: %s\n' "${TARGET_ROOT}" >&2
+  exit 2
+fi
+
+has_nvidia=false
+for vendor_file in /sys/bus/pci/devices/*/vendor; do
+  [[ -r "${vendor_file}" ]] || continue
+  if [[ "$(< "${vendor_file}")" == '0x10de' ]]; then
+    has_nvidia=true
+    break
+  fi
+done
+
+if [[ "${has_nvidia}" == true ]]; then
+  arch-chroot "${TARGET_ROOT}" test -x /usr/bin/prime-run
+  install -Dm0644 /dev/stdin "${TARGET_ROOT}/etc/modprobe.d/kaskados-nvidia.conf" <<'EOF'
+options nvidia_drm modeset=1
+EOF
+  install -Dm0644 /dev/stdin "${TARGET_ROOT}/etc/modules-load.d/kaskados-nvidia.conf" <<'EOF'
+nvidia
+nvidia_modeset
+nvidia_uvm
+nvidia_drm
+EOF
+  printf 'Обнаружена NVIDIA: закрытый драйвер 580xx и PRIME оставлены в системе.\n'
+  exit 0
+fi
+
+installed_packages=()
+for package_name in "${NVIDIA_PACKAGES[@]}"; do
+  if arch-chroot "${TARGET_ROOT}" pacman -Qq "${package_name}" >/dev/null 2>&1; then
+    installed_packages+=("${package_name}")
+  fi
+done
+
+if (( ${#installed_packages[@]} > 0 )); then
+  arch-chroot "${TARGET_ROOT}" pacman -Rdd --noconfirm "${installed_packages[@]}"
+fi
+
+printf 'NVIDIA не обнаружена: пакеты закрытого драйвера удалены из установленной системы.\n'

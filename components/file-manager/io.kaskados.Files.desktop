@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Файлы
+Comment=Файловый менеджер KaskadOS
+Exec=dms files open %f
+Icon=system-file-manager
+Terminal=false
+Categories=System;FileTools;FileManager;
+MimeType=inode/directory;
+StartupNotify=true
+X-KaskadOS-Component=file-manager

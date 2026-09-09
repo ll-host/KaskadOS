@@ -1,0 +1,107 @@
+pkgname=kaskados-desktop
+pkgver=${KASKADOS_DESKTOP_PKGVER:?Передайте KASKADOS_DESKTOP_PKGVER}
+pkgrel=${KASKADOS_DESKTOP_PKGREL:-1}
+pkgdesc='Рабочая среда и системные компоненты KaskadOS'
+arch=('x86_64')
+url='https://github.com/ll-host/KaskadOS'
+license=('GPL-3.0-or-later')
+provides=('macqueende')
+install=kaskados-desktop.install
+depends=(
+  '7zip'
+  'alsa-utils'
+  'base-devel'
+  'bash'
+  'bluez'
+  'bluez-utils'
+  'brightnessctl'
+  'bubblewrap'
+  'cava'
+  'curl'
+  'dbus'
+  'ddcutil'
+  'dgop'
+  'flatpak'
+  'git'
+  'glib2'
+  'kaskados-keyring'
+  'kwin'
+  'lib32-vulkan-intel'
+  'lib32-vulkan-radeon'
+  'libarchive'
+  'mesa'
+  'pacman-contrib'
+  'pavucontrol'
+  'pciutils'
+  'pipewire'
+  'pipewire-audio'
+  'pipewire-pulse'
+  'plasma-workspace'
+  'polkit'
+  'qt6-5compat'
+  'qt6-connectivity'
+  'qt6-imageformats'
+  'qt6-multimedia'
+  'qt6-positioning'
+  'qt6-sensors'
+  'qt6-svg'
+  'qt6-wayland'
+  'quickshell'
+  'sddm'
+  'ttf-dejavu'
+  'umu-launcher'
+  'unrar'
+  'vulkan-intel'
+  'vulkan-radeon'
+  'wireplumber'
+  'xdg-desktop-portal-gtk'
+  'xkeyboard-config'
+  'xorg-xwayland'
+)
+source=()
+sha256sums=()
+
+package() {
+  local payload=${KASKADOS_DESKTOP_PAYLOAD:?Передайте KASKADOS_DESKTOP_PAYLOAD}
+
+  [[ -d "${payload}/opt/macqueende" ]] || return 1
+  [[ -x "${payload}/usr/bin/start-macqueende" ]] || return 1
+  [[ -f "${payload}/usr/share/kaskados/release.json" ]] || return 1
+
+  install -d "${pkgdir}/opt"
+  cp -a "${payload}/opt/macqueende" "${pkgdir}/opt/"
+
+  for path in \
+    usr/bin/start-macqueende \
+    usr/bin/regalia \
+    usr/bin/regaliad \
+    usr/lib/kaskados/kaskados-system-update \
+    usr/lib/regalia \
+    usr/lib/systemd/system/regalia-engine@.service \
+    usr/lib/systemd/user/regaliad.service \
+    usr/lib/systemd/user/xdg-desktop-portal-macqueen.service \
+    usr/share/applications/io.kaskados.Files.desktop \
+    usr/share/applications/org.freedesktop.impl.portal.desktop.macqueen.desktop \
+    usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.macqueen.service \
+    usr/share/kaskados \
+    usr/share/polkit-1/actions/org.kaskados.system-update.policy \
+    usr/share/polkit-1/rules.d/50-regalia-engine.rules \
+    usr/share/wayland-sessions/macqueende.desktop \
+    usr/share/xdg-desktop-portal/macqueende-portals.conf \
+    usr/share/xdg-desktop-portal/portals/macqueen.portal; do
+    [[ -e "${payload}/${path}" ]] || return 1
+    install -d "${pkgdir}/$(dirname -- "${path}")"
+    cp -a "${payload}/${path}" "${pkgdir}/${path}"
+  done
+
+  install -Dm0644 "${payload}/etc/xdg/mimeapps.list" \
+    "${pkgdir}/etc/xdg/mimeapps.list"
+
+  install -d "${pkgdir}/etc/systemd/user/default.target.wants"
+  ln -s /usr/lib/systemd/user/regaliad.service \
+    "${pkgdir}/etc/systemd/user/default.target.wants/regaliad.service"
+
+  install -d "${pkgdir}/usr/bin"
+  ln -s /opt/macqueende/shell/MolniyaMacqueenShell/core/bin/dms \
+    "${pkgdir}/usr/bin/dms"
+}

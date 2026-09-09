@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+die()
+{
+    echo "start-macqueende: $*" >&2
+    exit 1
+}
+
+resolve_repo_root()
+{
+    if [[ -n ${MACQUEENDE_ROOT:-} ]]; then
+        printf '%s\n' "$MACQUEENDE_ROOT"
+        return
+    fi
+
+    local script_dir
+    script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+    if [[ -x "$script_dir/build/compositor/bin/macqueen" ]]; then
+        printf '%s\n' "$script_dir"
+        return
+    fi
+
+    if [[ -r /etc/macqueende/dev-root ]]; then
+        IFS= read -r script_dir </etc/macqueende/dev-root
+        printf '%s\n' "$script_dir"
+        return
+    fi
+
+    die "cannot locate the MacqueenDE checkout; set MACQUEENDE_ROOT"
+}
+
+if [[ ${1:-} != "--inside-dbus" && -z ${DBUS_SESSION_BUS_ADDRESS:-} ]]; then
+    command -v dbus-run-session >/dev/null ||
+        die "dbus-run-session is required"
+    exec dbus-run-session -- "$0" --inside-dbus
+fi
+
+repo_root=$(resolve_repo_root)
+macqueen="$repo_root/build/compositor/bin/macqueen"
+macqueen_screenshot_plugin="$repo_root/build/compositor/bin/kwin/plugins/screenshot.so"
+macqueen_screencast_plugin="$repo_root/build/compositor/bin/kwin/plugins/screencast.so"
+macqueen_nightlight_plugin="$repo_root/build/compositor/bin/kwin/plugins/nightlight.so"
+molniya="$repo_root/session/run-molniya"
+qml_module="$repo_root/build/quickshell-macqueen"
+qt_plugins="$repo_root/build/compositor/bin:$repo_root/build/compositor/lib"
+user_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+prepare_user_config="$repo_root/session/prepare-user-config"
+
+[[ -x "$macqueen" ]] ||
+    die "missing $macqueen; build the compositor first"
+[[ -f "$macqueen_screenshot_plugin" ]] ||
+    die "missing $macqueen_screenshot_plugin; run: cmake --build $repo_root/build/compositor --target screenshot"
+[[ -f "$macqueen_screencast_plugin" ]] ||
+    die "missing $macqueen_screencast_plugin; run: cmake --build $repo_root/build/compositor --target screencast"
+[[ -f "$macqueen_nightlight_plugin" ]] ||
+    die "missing $macqueen_nightlight_plugin; run: cmake --build $repo_root/build/compositor --target nightlight"
+[[ -x "$molniya" ]] ||
+    die "missing $molniya"
+[[ -f "$qml_module/Macqueen/Ipc/qmldir" ]] ||
+    die "missing the Quickshell Macqueen module; build it first"
+[[ -x "$prepare_user_config" ]] ||
+    die "missing $prepare_user_config"
+[[ -n ${XDG_RUNTIME_DIR:-} && -d ${XDG_RUNTIME_DIR:-} ]] ||
+    die "XDG_RUNTIME_DIR is unavailable; start this from a real login TTY or SDDM"
+
+"$prepare_user_config" "$repo_root" "$user_config_dir"
+
+export MACQUEENDE_ROOT="$repo_root"
+export QT_PLUGIN_PATH="$qt_plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+export QML2_IMPORT_PATH="$qml_module${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
+export LD_LIBRARY_PATH="$repo_root/build/compositor/bin:$repo_root/build/quickshell-macqueen${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export XDG_CURRENT_DESKTOP=MacqueenDE
+export XDG_SESSION_DESKTOP=MacqueenDE
+export XDG_SESSION_TYPE=wayland
+export QT_QPA_PLATFORM=wayland
+unset KDE_FULL_SESSION
+
+if command -v dbus-update-activation-environment >/dev/null; then
+    dbus-update-activation-environment --systemd \
+        WAYLAND_DISPLAY \
+        XDG_CURRENT_DESKTOP \
+        XDG_SESSION_DESKTOP \
+        XDG_SESSION_TYPE \
+        QT_QPA_PLATFORM \
+        2>/dev/null || true
+fi
+
+exec "$macqueen" \
+    --drm \
+    --xwayland \
+    --no-lockscreen \
+    --no-kactivities \
+    --exit-with-session "$molniya"

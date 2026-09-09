@@ -1,0 +1,13 @@
+[Desktops]
+Number=5
+Rows=1
+
+[MacqueenDE]
+WorkspaceDefaultsVersion=1
+
+[org.kde.kdecoration2]
+library=org.kde.breeze
+theme=Breeze
+
+[Windows]
+BorderlessMaximizedWindows=false

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export MACQUEENDE_ROOT=/opt/macqueende
+exec /opt/macqueende/start-macqueende "$@"

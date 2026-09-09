@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0-alpha.20",
+  "title": "Обновление MacqueenDE",
+  "summary": "MacqueenDE стал частью KaskadOS и получил основу для безопасных системных обновлений.",
+  "features": [
+    {
+      "icon": "deployed_code_update",
+      "title": "Обновления среды",
+      "description": "Версия и состав MacqueenDE теперь определяются из единого манифеста выпуска."
+    },
+    {
+      "icon": "shield_lock",
+      "title": "Подписанный репозиторий",
+      "description": "Пакеты KaskadOS проверяются официальным ключом подписи."
+    },
+    {
+      "icon": "vpn_lock",
+      "title": "Regalia внутри системы",
+      "description": "Службы Regalia устанавливаются вместе с KaskadOS."
+    }
+  ],
+  "notes": [
+    "Чтобы полностью применить обновление оболочки или композитора, выйдите из сеанса и войдите снова."
+  ]
+}

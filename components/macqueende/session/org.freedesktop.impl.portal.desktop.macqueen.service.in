@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.macqueen
+Exec=@MACQUEEN_PORTAL_EXECUTABLE@
+SystemdService=xdg-desktop-portal-macqueen.service

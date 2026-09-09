@@ -1,0 +1,21 @@
+# Build trees
+/build/
+**/build/
+**/build-*/
+
+# Generated packages and archives
+*.pkg.tar.*
+*.tar.zst
+
+# IDE and local tooling
+.cache/
+.idea/
+.vscode/
+compile_commands.json
+
+# Local environment and test state
+.env
+.env.*
+!.env.example
+/state/
+/dist/

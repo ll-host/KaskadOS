@@ -1,0 +1,14 @@
+[Compositing]
+Enabled=true
+GLCore=true
+OpenGLIsUnsafe=false
+
+[Desktops]
+Id_1=1
+Number=1
+Rows=1
+
+[Plugins]
+
+[Wayland]
+FollowLocale1=true

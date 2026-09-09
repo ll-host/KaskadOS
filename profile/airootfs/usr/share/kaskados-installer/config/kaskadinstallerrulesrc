@@ -1,0 +1,21 @@
+[General]
+rules=calamares-kiosk
+
+[calamares-kiosk]
+Description=KaskadOS Calamares kiosk
+Enabled=true
+wmclass=org.kaskados.Calamares
+wmclasscomplete=false
+wmclassmatch=1
+hastransientparent=false
+hastransientparentmatch=1
+fullscreen=true
+fullscreenrule=2
+minimize=false
+minimizerule=2
+closeable=false
+closeablerule=2
+noborder=true
+noborderrule=2
+disableglobalshortcuts=true
+disableglobalshortcutsrule=2

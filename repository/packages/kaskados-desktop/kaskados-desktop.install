@@ -1,0 +1,20 @@
+_enable_bluetooth_once() {
+  local state_dir='/var/lib/kaskados'
+  local marker="${state_dir}/bluetooth-default-applied"
+
+  [[ -e "${marker}" ]] && return 0
+
+  install -d -m 0755 "${state_dir}"
+  if systemctl enable bluetooth.service >/dev/null 2>&1; then
+    touch "${marker}"
+    systemctl start bluetooth.service >/dev/null 2>&1 || true
+  fi
+}
+
+post_install() {
+  _enable_bluetooth_once
+}
+
+post_upgrade() {
+  _enable_bluetooth_once
+}

@@ -1,0 +1,10 @@
+[General]
+ColorScheme=MacqueenDark
+
+[WM]
+activeBackground=28,28,32
+activeBlend=255,255,255
+activeForeground=245,245,247
+inactiveBackground=38,38,43
+inactiveBlend=145,145,155
+inactiveForeground=190,190,198

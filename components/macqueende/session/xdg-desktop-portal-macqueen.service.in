@@ -1,0 +1,12 @@
+[Unit]
+Description=Macqueen Desktop Portal
+PartOf=graphical-session.target
+After=graphical-session-pre.target
+
+[Service]
+Type=dbus
+ExecStart=@MACQUEEN_PORTAL_EXECUTABLE@
+BusName=org.freedesktop.impl.portal.desktop.macqueen
+Environment=QT_NO_XDG_DESKTOP_PORTAL=1
+Slice=session.slice
+Restart=no

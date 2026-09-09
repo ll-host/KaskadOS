@@ -1,0 +1,21 @@
+pkgname=dgop
+pkgver=0.2.3
+pkgrel=1
+pkgdesc='Системный источник данных для монитора MacqueenDE'
+arch=('x86_64')
+url='https://github.com/AvengeMedia/dgop'
+license=('MIT')
+source=(
+  "${pkgname}-${pkgver}.tar.gz::https://github.com/AvengeMedia/dgop/releases/download/v${pkgver}/dgop-linux-amd64.tar.gz"
+  "${pkgname}-${pkgver}-LICENSE::https://raw.githubusercontent.com/AvengeMedia/dgop/v${pkgver}/LICENSE"
+)
+sha256sums=(
+  '3c473310bc855d34e854d99940069025c27882868eb0ce37abc67321487009e1'
+  '4cee96286c5b7da9763a4694868bb1853b33bb1558821e0c609ad2eabd426bfa'
+)
+
+package() {
+  install -Dm0755 "${srcdir}/dgop-linux-amd64" "${pkgdir}/usr/bin/dgop"
+  install -Dm0644 "${srcdir}/${pkgname}-${pkgver}-LICENSE" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

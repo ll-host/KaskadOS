@@ -1,0 +1,21 @@
+pkgname=kaskados-keyring
+pkgver=20260824
+pkgrel=2
+pkgdesc='Ключи подписи официального репозитория KaskadOS'
+arch=('any')
+url='https://kaskados.xyz'
+license=('GPL-3.0-or-later')
+depends=('pacman')
+install='kaskados-keyring.install'
+source=('kaskados.gpg' 'kaskados-trusted')
+sha256sums=(
+  '5278ef348782f1c990111c6d9f87e5ecffa9f00a3f061883b43756aa0580165a'
+  'ef1090f99b4f86defc3cef806b389140974370cb39fdcbce780e10c6bc731808'
+)
+
+package() {
+  install -Dm0644 "${srcdir}/kaskados.gpg" \
+    "${pkgdir}/usr/share/pacman/keyrings/kaskados.gpg"
+  install -Dm0644 "${srcdir}/kaskados-trusted" \
+    "${pkgdir}/usr/share/pacman/keyrings/kaskados-trusted"
+}

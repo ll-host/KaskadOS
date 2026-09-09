@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root=${MACQUEENDE_ROOT:?MACQUEENDE_ROOT is not set}
+backend="$repo_root/shell/MolniyaMacqueenShell/core/bin/dms"
+shell_dir="$repo_root/shell/MolniyaMacqueenShell/quickshell"
+portal="$repo_root/build/portal/bin/xdg-desktop-portal-macqueen"
+
+if [[ ! -x "$backend" ]]; then
+    echo "run-molniya: missing $backend; run make dev in the shell core" >&2
+    exit 1
+fi
+
+if [[ ! -f "$shell_dir/shell.qml" ]]; then
+    echo "run-molniya: missing $shell_dir/shell.qml" >&2
+    exit 1
+fi
+
+if [[ ! -x "$portal" ]]; then
+    echo "run-molniya: missing $portal; build the Macqueen portal first" >&2
+    exit 1
+fi
+
+export QT_NO_XDG_DESKTOP_PORTAL=1
+
+dbus-update-activation-environment --systemd \
+    WAYLAND_DISPLAY \
+    XDG_CURRENT_DESKTOP \
+    XDG_SESSION_DESKTOP \
+    XDG_SESSION_TYPE \
+    QT_QPA_PLATFORM
+systemctl --user restart xdg-desktop-portal.service
+
+for _ in $(seq 1 50); do
+    if qdbus6 org.freedesktop.impl.portal.desktop.macqueen \
+        /org/freedesktop/portal/desktop \
+        org.freedesktop.DBus.Properties.Get \
+        org.freedesktop.impl.portal.ScreenCast \
+        version >/dev/null 2>&1; then
+        exec "$backend" run -c "$shell_dir"
+    fi
+    sleep 0.1
+done
+
+echo "run-molniya: Macqueen portal failed to start" >&2
+exit 1

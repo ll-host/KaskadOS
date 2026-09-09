@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=MacqueenDE
+Comment=Рабочий стол KaskadOS
+Exec=/usr/bin/start-macqueende
+TryExec=/usr/bin/start-macqueende
+Type=Application
+DesktopNames=MacqueenDE

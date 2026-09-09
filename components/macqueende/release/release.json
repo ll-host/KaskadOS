@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "product": "MacqueenDE",
+  "version": "0.1.0-alpha.44",
+  "channel": "alpha",
+  "releaseDate": "2026-09-07",
+  "releaseNotes": "releases/0.1.0-alpha.44.json",
+  "releaseUrl": "https://github.com/ll-host/KaskadOS/releases",
+  "sessionRestartRequired": true,
+  "components": {
+    "compositor": "0.1.0-dev",
+    "shell": "1.6-beta",
+    "regalia": "integrated"
+  }
+}

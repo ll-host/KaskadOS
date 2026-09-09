@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+---
+type: "job"
+name: "kaskadthemes"
+interface: "python"
+script: "main.py"

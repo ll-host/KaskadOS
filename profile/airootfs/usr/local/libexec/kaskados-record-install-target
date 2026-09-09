@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly target_root="${1:?Не передан корень установленной системы}"
+readonly target_user="${2:?Не передано имя пользователя}"
+readonly state_dir='/run/kaskados-installer'
+readonly state_file="${state_dir}/install-target"
+
+[[ "${target_root}" == /tmp/calamares-root-* ]] || {
+    printf 'Недопустимый корень установленной системы: %s\n' "${target_root}" >&2
+    exit 2
+}
+[[ "${target_user}" =~ ^[a-z_][a-z0-9_-]*$ ]] || {
+    printf 'Недопустимое имя пользователя: %s\n' "${target_user}" >&2
+    exit 2
+}
+mountpoint -q -- "${target_root}" || {
+    printf 'Корень установленной системы не смонтирован: %s\n' "${target_root}" >&2
+    exit 2
+}
+
+read -r root_source root_fstype root_options < <(
+    findmnt -rn -o SOURCE,FSTYPE,OPTIONS --target "${target_root}"
+)
+[[ -n "${root_source}" && -n "${root_fstype}" && -n "${root_options}" ]] || {
+    printf 'Не удалось определить корневой раздел установленной системы.\n' >&2
+    exit 2
+}
+
+install -d -m 0700 "${state_dir}"
+state_temp="$(mktemp "${state_file}.XXXXXX")"
+trap 'rm -f -- "${state_temp}"' EXIT
+{
+    printf 'ROOT_SOURCE=%q\n' "${root_source}"
+    printf 'ROOT_FSTYPE=%q\n' "${root_fstype}"
+    printf 'ROOT_OPTIONS=%q\n' "${root_options}"
+    printf 'TARGET_USER=%q\n' "${target_user}"
+} > "${state_temp}"
+chmod 0600 "${state_temp}"
+mv -f -- "${state_temp}" "${state_file}"
+trap - EXIT
