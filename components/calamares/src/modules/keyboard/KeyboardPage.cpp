@@ -28,6 +28,8 @@
 #include "utils/String.h"
 
 #include <QComboBox>
+#include <QHBoxLayout>
+#include <QLabel>
 #include <QPushButton>
 
 class LayoutItem : public QListWidgetItem
@@ -47,6 +49,19 @@ KeyboardPage::KeyboardPage( Config* config, QWidget* parent )
     , m_config( config )
 {
     ui->setupUi( this );
+
+    auto* title = new QLabel( tr( "Клавиатура" ), this );
+    title->setProperty( "heading", true );
+    auto* subtitle = new QLabel( tr( "Раскладки и переключение языка." ), this );
+    subtitle->setObjectName( QStringLiteral( "pageSubtitle" ) );
+    ui->verticalLayout->insertWidget( 0, subtitle );
+    ui->verticalLayout->insertWidget( 0, title );
+
+    // The generic PC-105 model is correct for normal installations. Keep the
+    // model in Config, but do not make the user choose an implementation detail.
+    ui->label->hide();
+    ui->physicalModelSelector->hide();
+    ui->buttonRestore->hide();
 
     // Keyboard Preview
     ui->KBPreviewLayout->addWidget( m_keyboardPreview );
@@ -68,6 +83,56 @@ KeyboardPage::KeyboardPage( Config* config, QWidget* parent )
         ui->variantSelector->setCurrentIndex( model->index( model->currentIndex() ) );
         cDebug() << "Variants now total=" << model->rowCount() << "selected=" << model->currentIndex();
     }
+
+    auto* additionalCard = new QWidget( this );
+    additionalCard->setObjectName( QStringLiteral( "keyboardOptionsCard" ) );
+    auto* additionalLayout = new QHBoxLayout( additionalCard );
+    additionalLayout->setContentsMargins( 20, 12, 20, 12 );
+    additionalLayout->setSpacing( 16 );
+
+    auto* additionalLabel = new QLabel( tr( "Дополнительная раскладка" ), additionalCard );
+    auto* additionalSelector = new QComboBox( additionalCard );
+    additionalSelector->setObjectName( QStringLiteral( "additionalLayoutSelector" ) );
+    additionalSelector->addItem( tr( "Автоматически" ), QVariant() );
+    additionalSelector->addItem( tr( "Не добавлять" ), QStringLiteral( "" ) );
+    for ( int i = 0; i < config->keyboardLayouts()->rowCount(); ++i )
+    {
+        const QModelIndex index = config->keyboardLayouts()->index( i );
+        additionalSelector->addItem( index.data( Qt::DisplayRole ).toString(), config->keyboardLayouts()->key( i ) );
+    }
+    additionalSelector->setMinimumWidth( 260 );
+
+    auto* switcherLabel = new QLabel( tr( "Переключение" ), additionalCard );
+    auto* switcherSelector = new QComboBox( additionalCard );
+    switcherSelector->setObjectName( QStringLiteral( "groupSwitcherSelector" ) );
+    switcherSelector->addItem( tr( "Alt + Shift" ), QStringLiteral( "grp:alt_shift_toggle" ) );
+    switcherSelector->addItem( tr( "Ctrl + Shift" ), QStringLiteral( "grp:ctrl_shift_toggle" ) );
+    switcherSelector->addItem( tr( "Caps Lock" ), QStringLiteral( "grp:caps_toggle" ) );
+
+    additionalLayout->addWidget( additionalLabel );
+    additionalLayout->addWidget( additionalSelector, 1 );
+    additionalLayout->addSpacing( 16 );
+    additionalLayout->addWidget( switcherLabel );
+    additionalLayout->addWidget( switcherSelector );
+    ui->verticalLayout->insertWidget( ui->verticalLayout->count() - 1, additionalCard );
+
+    connect( additionalSelector,
+             QOverload< int >::of( &QComboBox::currentIndexChanged ),
+             [ config, additionalSelector ]( int index )
+             {
+                 if ( index == 0 )
+                 {
+                     config->setAdditionalLayoutOverride( QString() );
+                 }
+                 else
+                 {
+                     config->setAdditionalLayoutOverride( additionalSelector->currentData().toString() );
+                 }
+             } );
+    connect( switcherSelector,
+             QOverload< int >::of( &QComboBox::currentIndexChanged ),
+             [ config, switcherSelector ]( int )
+             { config->setGroupSwitcher( switcherSelector->currentData().toString() ); } );
     connect( ui->buttonRestore,
              &QPushButton::clicked,
              [ config = config ] { config->keyboardModels()->setCurrentIndex(); } );

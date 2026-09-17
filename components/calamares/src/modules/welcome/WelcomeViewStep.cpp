@@ -14,6 +14,8 @@
 #include "WelcomePage.h"
 
 #include "Branding.h"
+#include "GlobalStorage.h"
+#include "JobQueue.h"
 #include "modulesystem/ModuleManager.h"
 #include "utils/Logger.h"
 #include "utils/Variant.h"
@@ -43,7 +45,19 @@ WelcomeViewStep::~WelcomeViewStep()
 QString
 WelcomeViewStep::prettyName() const
 {
-    return tr( "Welcome", "@title" );
+    return tr( "Экран", "@title" );
+}
+
+QString
+WelcomeViewStep::prettyStatus() const
+{
+    const auto* queue = Calamares::JobQueue::instance();
+    const auto* gs = queue ? queue->globalStorage() : nullptr;
+    const int brightness = gs ? gs->value( "kaskadBrightness" ).toInt() : 78;
+    const bool warmLight = gs && gs->value( "kaskadWarmLight" ).toInt() == 1;
+    return tr( "Яркость: <strong>%1%</strong><br/>Тёплый свет: <strong>%2</strong>" )
+        .arg( brightness )
+        .arg( warmLight ? tr( "включён" ) : tr( "выключен" ) );
 }
 
 

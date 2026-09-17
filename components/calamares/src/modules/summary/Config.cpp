@@ -32,18 +32,8 @@ Config::Config( QObject* parent )
 void
 Config::retranslate()
 {
-    m_title = tr( "Summary", "@label" );
-
-    if ( Calamares::Settings::instance()->isSetupMode() )
-    {
-        m_message = tr( "This is an overview of what will happen once you start "
-                        "the setup procedure." );
-    }
-    else
-    {
-        m_message = tr( "This is an overview of what will happen once you start "
-                        "the install procedure." );
-    }
+    m_title = tr( "Перед установкой", "@label" );
+    m_message = tr( "Проверьте настройки. Нажмите на карточку, чтобы изменить её." );
     Q_EMIT titleChanged( m_title );
     Q_EMIT messageChanged( m_message );
 }

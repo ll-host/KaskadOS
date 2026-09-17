@@ -48,9 +48,11 @@ protected slots:
 
 private:
     void retranslate();
+    void updateGeneratedFieldsVisibility( bool visible );
 
     Ui::Page_UserSetup* ui;
     Config* m_config;
+    QLabel* m_generatedHint;
 };
 
 #endif  // USERSPAGE_H

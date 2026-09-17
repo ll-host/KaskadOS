@@ -224,6 +224,39 @@ Config::somethingChanged()
     emit prettyStatusChanged();
 }
 
+AdditionalLayoutInfo
+Config::effectiveAdditionalLayoutInfo() const
+{
+    AdditionalLayoutInfo extra = liveAdditionalLayoutInfo( m_current.selectedLayout );
+    if ( m_hasAdditionalLayoutOverride )
+    {
+        extra.additionalLayout = m_additionalLayoutOverride;
+        extra.additionalVariant.clear();
+    }
+    if ( extra.additionalLayout == m_current.selectedLayout )
+    {
+        extra.additionalLayout.clear();
+        extra.additionalVariant.clear();
+    }
+    extra.groupSwitcher = extra.additionalLayout.isEmpty() ? QString() : m_groupSwitcher;
+    return extra;
+}
+
+void
+Config::setAdditionalLayoutOverride( const QString& layout )
+{
+    m_hasAdditionalLayoutOverride = !layout.isNull();
+    m_additionalLayoutOverride = layout;
+    somethingChanged();
+}
+
+void
+Config::setGroupSwitcher( const QString& groupSwitcher )
+{
+    m_groupSwitcher = groupSwitcher;
+    somethingChanged();
+}
+
 static void
 applyXkb( const BasicLayoutInfo& settings, AdditionalLayoutInfo& extra )
 {
@@ -419,7 +452,7 @@ applyGnome( const BasicLayoutInfo& settings, AdditionalLayoutInfo& extra )
 void
 Config::apply()
 {
-    m_additionalLayoutInfo = liveAdditionalLayoutInfo( m_current.selectedLayout );
+    m_additionalLayoutInfo = effectiveAdditionalLayoutInfo();
     if ( m_configureXkb )
     {
         applyXkb( m_current, m_additionalLayoutInfo );
@@ -639,19 +672,35 @@ Config::cancel()
 QString
 Config::prettyStatus() const
 {
-    QString status
-        = tr( "Keyboard model has been set to %1.", "@label, %1 is keyboard model, as in Apple Magic Keyboard" )
-              .arg( m_keyboardModelsModel->label( m_keyboardModelsModel->currentIndex() ) );
-    status += QStringLiteral( "<br/>" );
+    const QString primary = m_keyboardLayoutsModel->item( m_keyboardLayoutsModel->currentIndex() ).second.description;
+    const AdditionalLayoutInfo extra = effectiveAdditionalLayoutInfo();
+    if ( extra.additionalLayout.isEmpty() )
+    {
+        return tr( "Основная: <strong>%1</strong><br/>Дополнительная раскладка не выбрана" ).arg( primary );
+    }
 
-    QString layout = m_keyboardLayoutsModel->item( m_keyboardLayoutsModel->currentIndex() ).second.description;
-    QString variant = m_keyboardVariantsModel->currentIndex() >= 0
-        ? m_keyboardVariantsModel->label( m_keyboardVariantsModel->currentIndex() )
-        : QString( "<default>" );
-    status += tr( "Keyboard layout has been set to %1/%2.", "@label, %1 is layout, %2 is layout variant" )
-                  .arg( layout, variant );
+    QString secondary = extra.additionalLayout;
+    for ( int i = 0; i < m_keyboardLayoutsModel->rowCount(); ++i )
+    {
+        const auto item = m_keyboardLayoutsModel->item( i );
+        if ( item.first == extra.additionalLayout )
+        {
+            secondary = item.second.description;
+            break;
+        }
+    }
 
-    return status;
+    QString switcher = tr( "Alt + Shift" );
+    if ( extra.groupSwitcher == QStringLiteral( "grp:ctrl_shift_toggle" ) )
+    {
+        switcher = tr( "Ctrl + Shift" );
+    }
+    else if ( extra.groupSwitcher == QStringLiteral( "grp:caps_toggle" ) )
+    {
+        switcher = tr( "Caps Lock" );
+    }
+    return tr( "Основная: <strong>%1</strong><br/>Дополнительная: <strong>%2</strong> · %3" )
+        .arg( primary, secondary, switcher );
 }
 
 Calamares::JobList
@@ -659,14 +708,10 @@ Config::createJobs()
 {
     QList< Calamares::job_ptr > list;
 
-    // The extra ASCII layout is only a live-installer safety measure.
-    // The installed desktop environment owns multi-layout configuration.
-    const AdditionalLayoutInfo targetLayoutInfo;
-
     Calamares::Job* j = new SetKeyboardLayoutJob( m_current.selectedModel,
                                                   m_current.selectedLayout,
                                                   m_current.selectedVariant,
-                                                  targetLayoutInfo,
+                                                  m_additionalLayoutInfo,
                                                   m_xOrgConfFileName,
                                                   m_convertedKeymapPath,
                                                   m_configureEtcDefaultKeyboard,
@@ -827,10 +872,16 @@ void
 Config::finalize()
 {
     Calamares::GlobalStorage* gs = Calamares::JobQueue::instance()->globalStorage();
+    // Preserve the useful secondary ASCII layout in the installed system as
+    // well, so a Russian (or other non-ASCII) choice does not lose Alt+Shift
+    // after the first boot.
+    m_additionalLayoutInfo = effectiveAdditionalLayoutInfo();
     if ( !m_current.selectedLayout.isEmpty() )
     {
         gs->insert( "keyboardLayout", m_current.selectedLayout );
         gs->insert( "keyboardVariant", m_current.selectedVariant );  //empty means default variant
+        gs->insert( "keyboardAdditionalLayout", m_additionalLayoutInfo.additionalLayout );
+        gs->insert( "keyboardGroupSwitcher", m_additionalLayoutInfo.groupSwitcher );
     }
 
     //FIXME: also store keyboard model for something?

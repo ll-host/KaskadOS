@@ -49,6 +49,12 @@ PackageChooserViewStep::prettyName() const
     return m_config->prettyName();
 }
 
+QString
+PackageChooserViewStep::prettyStatus() const
+{
+    return m_config->prettyStatus();
+}
+
 
 QWidget*
 PackageChooserViewStep::widget()

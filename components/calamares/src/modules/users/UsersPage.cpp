@@ -81,8 +81,27 @@ UsersPage::UsersPage( Config* config, QWidget* parent )
     : QWidget( parent )
     , ui( new Ui::Page_UserSetup )
     , m_config( config )
+    , m_generatedHint( new QLabel( tr( "✦  Логин и имя компьютера заполнены автоматически" ), this ) )
 {
     ui->setupUi( this );
+
+    ui->labelWhatIsYourName->setProperty( "heading", true );
+    auto* subtitle = new QLabel( tr( "Основная учётная запись с правами администратора." ), this );
+    subtitle->setObjectName( QStringLiteral( "pageSubtitle" ) );
+    ui->verticalLayout_12->insertWidget( 2, subtitle );
+
+    auto* sectionTitle = new QLabel( tr( "Данные профиля" ), this );
+    sectionTitle->setObjectName( QStringLiteral( "sectionTitle" ) );
+    ui->verticalLayout_12->insertWidget( 3, sectionTitle );
+
+    m_generatedHint->setObjectName( QStringLiteral( "generatedHint" ) );
+    ui->verticalLayout_12->insertWidget( 6, m_generatedHint );
+
+    ui->textBoxFullName->setMaximumWidth( 520 );
+    ui->textBoxLoginName->setMaximumWidth( 300 );
+    ui->textBoxHostname->setMaximumWidth( 300 );
+    ui->textBoxUserPassword->setMaximumWidth( 300 );
+    ui->textBoxUserVerifiedPassword->setMaximumWidth( 300 );
 
     // Connect signals and slots
     ui->textBoxUserPassword->setText( config->userPassword() );
@@ -199,6 +218,15 @@ void
 UsersPage::retranslate()
 {
     ui->retranslateUi( this );
+    ui->labelWhatIsYourName->setText( tr( "Профиль владельца" ) );
+    ui->textBoxFullName->setPlaceholderText( tr( "Ваше имя" ) );
+    ui->username_label_2->setText( tr( "Имя пользователя" ) );
+    ui->textBoxLoginName->setPlaceholderText( tr( "Логин" ) );
+    ui->hostnameLabel->setText( tr( "Имя компьютера" ) );
+    ui->textBoxHostname->setPlaceholderText( tr( "Имя компьютера" ) );
+    ui->password_label_2->setText( tr( "Пароль" ) );
+    ui->textBoxUserPassword->setPlaceholderText( tr( "Пароль" ) );
+    ui->textBoxUserVerifiedPassword->setPlaceholderText( tr( "Повторите пароль" ) );
     if ( Calamares::Settings::instance()->isSetupMode() )
     {
         ui->textBoxLoginName->setToolTip( tr( "<small>If more than one person will "
@@ -232,6 +260,25 @@ void
 UsersPage::onFullNameTextEdited( const QString& fullName )
 {
     labelStatus( ui->labelFullName, ui->labelFullNameError, fullName, QString() );
+    updateGeneratedFieldsVisibility( !fullName.trimmed().isEmpty() );
+}
+
+void
+UsersPage::updateGeneratedFieldsVisibility( bool visible )
+{
+    m_generatedHint->setVisible( visible );
+    ui->username_label_2->setVisible( visible );
+    ui->textBoxLoginName->setVisible( visible );
+    ui->labelUsername->setVisible( visible );
+    ui->labelUsernameError->setVisible( visible );
+
+    const bool showHostname = visible
+        && ( ( m_config->hostnameAction() == HostNameAction::EtcHostname )
+             || ( m_config->hostnameAction() == HostNameAction::SystemdHostname ) );
+    ui->hostnameLabel->setVisible( showHostname );
+    ui->textBoxHostname->setVisible( showHostname );
+    ui->labelHostname->setVisible( showHostname );
+    ui->labelHostnameError->setVisible( showHostname );
 }
 
 void

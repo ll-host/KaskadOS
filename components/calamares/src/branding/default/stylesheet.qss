@@ -1,10 +1,10 @@
-/* KaskadOS Material 3 dark palette. */
+/* KaskadOS Material 3 Expressive dark palette. */
 
 QWidget {
-    background-color: #111512;
-    color: #E2E8E4;
-    font-family: "Noto Sans";
-    font-size: 14px;
+    background-color: #101411;
+    color: #DEE4E0;
+    font-family: "Noto Sans", sans-serif;
+    font-size: 15px;
 }
 
 QWidget#mainApp,
@@ -12,7 +12,215 @@ QWidget#centralWidget,
 QStackedWidget,
 QScrollArea,
 QScrollArea > QWidget > QWidget {
-    background-color: #111512;
+    background-color: #101411;
+}
+
+QWidget#kaskadBrandHeader {
+    background-color: #101411;
+}
+
+QLabel#kaskadBrandName {
+    color: #DEE4E0;
+    font-size: 21px;
+    font-weight: 700;
+}
+
+QLabel#pageSubtitle {
+    color: #BDCAC0;
+    font-size: 15px;
+}
+
+QLabel#displayPageTitle {
+    color: #DEE4E0;
+    font-size: 34px;
+    font-weight: 700;
+}
+
+QFrame#displaySettingsCard {
+    background: #1B211E;
+    border: 1px solid #2D3932;
+    border-radius: 24px;
+    margin-top: 22px;
+    margin-bottom: 18px;
+}
+
+QWidget#keyboardOptionsCard {
+    background: #1B211E;
+    border: 1px solid #2D3932;
+    border-radius: 18px;
+}
+
+QWidget#keyboardOptionsCard QLabel {
+    background: transparent;
+    color: #DEE4E0;
+    font-weight: 600;
+}
+
+QLabel#settingTitle {
+    color: #DEE4E0;
+    font-size: 19px;
+    font-weight: 600;
+}
+
+QLabel#settingValue {
+    color: #9BD9B4;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+QLabel#settingDescription {
+    color: #AEBCB3;
+    font-size: 14px;
+}
+
+QFrame#settingsSeparator {
+    color: #344139;
+    background: #344139;
+    min-height: 1px;
+    max-height: 1px;
+    border: none;
+}
+
+QSlider#brightnessSlider {
+    min-height: 30px;
+}
+
+QSlider#brightnessSlider::groove:horizontal {
+    height: 12px;
+    border-radius: 6px;
+    background: #405047;
+}
+
+QSlider#brightnessSlider::sub-page:horizontal {
+    background: #9BD9B4;
+    border-radius: 6px;
+}
+
+QSlider#brightnessSlider::handle:horizontal {
+    background: #9BD9B4;
+    width: 6px;
+    margin: -9px 0;
+    border-radius: 3px;
+}
+
+QCheckBox#warmLightToggle {
+    min-width: 54px;
+    min-height: 32px;
+    spacing: 0;
+}
+
+QCheckBox#warmLightToggle::indicator {
+    width: 52px;
+    height: 28px;
+    border-radius: 14px;
+    border: 2px solid #819087;
+    background: #343D38;
+}
+
+QCheckBox#warmLightToggle::indicator:checked {
+    border-color: #9BD9B4;
+    background: #17613D;
+}
+
+QLabel#productName {
+    color: #DEE4E0;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+QLabel#productDescription {
+    color: #BDCAC0;
+    font-size: 14px;
+}
+
+QLabel#sectionTitle {
+    color: #DEE4E0;
+    font-size: 20px;
+    font-weight: 650;
+    margin-top: 12px;
+}
+
+QLabel#generatedHint {
+    color: #BDCAC0;
+    background: #1C211E;
+    border-radius: 16px;
+    padding: 7px 12px;
+    max-width: 390px;
+}
+
+QWidget#viewManagerStack > QWidget {
+    background-color: #101411;
+}
+
+QWidget#summaryStep QLabel#summaryTitle {
+    color: #DEE4E0;
+    font-size: 28px;
+    font-weight: 700;
+    padding: 4px 0 16px 0;
+}
+
+QWidget#summaryStep QLabel#summaryItemTitle {
+    color: #9BD9B4;
+    font-size: 17px;
+    font-weight: 650;
+}
+
+QWidget#summaryStep QLabel#summaryItemBody {
+    color: #DEE4E0;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+QPushButton#summaryCard {
+    background: #1C211E;
+    border: 1px solid #2D3932;
+    border-radius: 18px;
+    text-align: left;
+}
+
+QPushButton#summaryCard:hover {
+    background: #232B27;
+    border-color: #557061;
+}
+
+QPushButton#summaryCard:pressed {
+    background: #12512E;
+}
+
+QLabel#summaryCardArrow {
+    color: #9BD9B4;
+    background: transparent;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+QWidget#alongsideInstallChoice,
+QWidget#replaceInstallChoice,
+QWidget#eraseInstallChoice,
+QWidget#manualInstallChoice {
+    background-color: #1C211E;
+    border: 1px solid #1C211E;
+    border-radius: 20px;
+}
+
+QWidget#alongsideInstallChoice[selected="true"],
+QWidget#replaceInstallChoice[selected="true"],
+QWidget#manualInstallChoice[selected="true"] {
+    background-color: #12512E;
+    border-color: #12512E;
+}
+
+QWidget#eraseInstallChoice[selected="true"] {
+    background-color: #8C1D18;
+    border-color: #8C1D18;
+}
+
+QLabel[heading="true"],
+QLabel#mainText {
+    color: #DEE4E0;
+    font-size: 30px;
+    font-weight: 700;
 }
 
 QLabel {
@@ -25,11 +233,11 @@ QLabel:disabled {
 }
 
 QGroupBox {
-    border: 1px solid #3B443E;
-    border-radius: 16px;
+    border: 1px solid #3E4941;
+    border-radius: 20px;
     margin-top: 14px;
-    padding: 18px 14px 14px 14px;
-    background-color: #1A1F1C;
+    padding: 20px 16px 16px 16px;
+    background-color: #181C1A;
     font-weight: 600;
 }
 
@@ -37,46 +245,46 @@ QGroupBox::title {
     subcontrol-origin: margin;
     left: 16px;
     padding: 0 6px;
-    color: #C8D1CB;
+    color: #BDCAC0;
 }
 
 QPushButton,
 QToolButton {
-    min-height: 38px;
-    padding: 0 18px;
-    border: 1px solid #414943;
-    border-radius: 13px;
-    color: #E2E8E4;
-    background-color: #272D29;
+    min-height: 44px;
+    padding: 0 20px;
+    border: 1px solid #3E4941;
+    border-radius: 16px;
+    color: #DEE4E0;
+    background-color: #1C211E;
 }
 
 QPushButton:hover,
 QToolButton:hover {
-    background-color: #323A35;
-    border-color: #69746D;
+    background-color: #272B28;
+    border-color: #87948B;
 }
 
 QPushButton:pressed,
 QToolButton:pressed {
-    background-color: #3A443E;
+    background-color: #313633;
 }
 
 QPushButton:default {
-    color: #102117;
-    background-color: #9FE0B4;
+    color: #00391C;
+    background-color: #96D5A9;
     border: 0;
     font-weight: 600;
 }
 
 QPushButton:default:hover {
-    background-color: #ACEBC0;
+    background-color: #B1F1C5;
 }
 
 QPushButton:disabled,
 QToolButton:disabled {
     color: #68716B;
-    background-color: #202522;
-    border-color: #2B322E;
+    background-color: #1C211E;
+    border-color: #3E4941;
 }
 
 QLineEdit,
@@ -85,14 +293,14 @@ QTextEdit,
 QSpinBox,
 QDoubleSpinBox,
 QComboBox {
-    min-height: 38px;
-    padding: 0 12px;
-    border: 1px solid #5E6862;
-    border-radius: 12px;
-    color: #E2E8E4;
-    selection-color: #102117;
-    selection-background-color: #9FE0B4;
-    background-color: #1B211D;
+    min-height: 46px;
+    padding: 0 16px;
+    border: 1px solid #87948B;
+    border-radius: 16px;
+    color: #DEE4E0;
+    selection-color: #00391C;
+    selection-background-color: #96D5A9;
+    background-color: #101411;
 }
 
 QLineEdit:focus,
@@ -101,7 +309,7 @@ QTextEdit:focus,
 QSpinBox:focus,
 QDoubleSpinBox:focus,
 QComboBox:focus {
-    border: 2px solid #9FE0B4;
+    border: 2px solid #96D5A9;
 }
 
 QComboBox::drop-down {
@@ -110,11 +318,11 @@ QComboBox::drop-down {
 }
 
 QComboBox QAbstractItemView {
-    color: #E2E8E4;
-    background-color: #252B27;
-    selection-color: #102117;
-    selection-background-color: #9FE0B4;
-    border: 1px solid #414943;
+    color: #DEE4E0;
+    background-color: #272B28;
+    selection-color: #00391C;
+    selection-background-color: #96D5A9;
+    border: 1px solid #3E4941;
     outline: 0;
     padding: 6px;
 }
@@ -122,27 +330,27 @@ QComboBox QAbstractItemView {
 QListView,
 QTreeView,
 QTableView {
-    color: #E2E8E4;
-    alternate-background-color: #202622;
-    background-color: #181D1A;
-    border: 1px solid #3B443E;
-    border-radius: 12px;
+    color: #DEE4E0;
+    alternate-background-color: #1C211E;
+    background-color: #181C1A;
+    border: 1px solid #3E4941;
+    border-radius: 20px;
     outline: 0;
 }
 
 QAbstractItemView::item {
-    min-height: 34px;
-    padding: 4px 8px;
+    min-height: 42px;
+    padding: 6px 12px;
 }
 
 QAbstractItemView::item:selected {
-    color: #102117;
-    background-color: #9FE0B4;
+    color: #B1F1C5;
+    background-color: #12512E;
 }
 
 QHeaderView::section {
-    color: #C8D1CB;
-    background-color: #252B27;
+    color: #BDCAC0;
+    background-color: #272B28;
     border: 0;
     border-right: 1px solid #3B443E;
     border-bottom: 1px solid #3B443E;

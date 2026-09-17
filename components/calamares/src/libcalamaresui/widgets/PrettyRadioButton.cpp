@@ -17,6 +17,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QStyle>
 
 namespace Calamares
 {
@@ -30,6 +31,9 @@ PrettyRadioButton::PrettyRadioButton( QWidget* parent )
     , m_mainLayout( new QGridLayout )
     , m_optionsLayout( nullptr )
 {
+    setObjectName( QStringLiteral( "installChoiceCard" ) );
+    setProperty( "selected", false );
+    setMinimumHeight( 72 );
     setLayout( m_mainLayout );
 
     m_label->setBuddy( m_radio );
@@ -39,10 +43,22 @@ PrettyRadioButton::PrettyRadioButton( QWidget* parent )
 
     m_mainLayout->addWidget( m_radio, 0, 0 );
     m_mainLayout->addWidget( m_label, 0, 1 );
-    m_mainLayout->setContentsMargins( 0, 0, 0, 0 );
+    m_mainLayout->setHorizontalSpacing( 14 );
+    m_mainLayout->setVerticalSpacing( 8 );
+    m_mainLayout->setContentsMargins( 18, 10, 18, 10 );
 
     connect( m_label, &ClickableLabel::clicked, m_radio, &QRadioButton::click );
-    connect( m_radio, &QRadioButton::toggled, this, &PrettyRadioButton::toggleOptions );
+    connect( m_radio,
+             &QRadioButton::toggled,
+             this,
+             [ this ]( bool checked )
+             {
+                 setProperty( "selected", checked );
+                 style()->unpolish( this );
+                 style()->polish( this );
+                 update();
+                 toggleOptions( checked );
+             } );
 }
 
 

@@ -29,6 +29,7 @@ struct StepSummary
     QString title;
     QString message;
     QWidget* widget = nullptr;
+    Calamares::ViewStep* step = nullptr;
 };
 
 class SummaryModel : public QAbstractListModel
@@ -42,6 +43,7 @@ public:
         TitleRole = Qt::DisplayRole,  // Name of the step
         MessageRole = Qt::UserRole,  // String saying what it will do
         WidgetRole,  // Pointer to widget
+        StepRole,  // Pointer to originating view step
     };
 
     explicit SummaryModel( QObject* parent = nullptr );

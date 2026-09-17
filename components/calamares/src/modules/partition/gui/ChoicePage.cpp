@@ -256,17 +256,20 @@ ChoicePage::setupChoices()
     m_grp = new QButtonGroup( this );
 
     m_alongsideButton = new PrettyRadioButton;
+    m_alongsideButton->setObjectName( QStringLiteral( "alongsideInstallChoice" ) );
     m_alongsideButton->setIconSize( iconSize );
     m_alongsideButton->setIcon(
         Calamares::defaultPixmap( Calamares::PartitionAlongside, Calamares::Original, iconSize ) );
     m_alongsideButton->addToGroup( m_grp, InstallChoice::Alongside );
 
     m_eraseButton = new PrettyRadioButton;
+    m_eraseButton->setObjectName( QStringLiteral( "eraseInstallChoice" ) );
     m_eraseButton->setIconSize( iconSize );
     m_eraseButton->setIcon( Calamares::defaultPixmap( Calamares::PartitionEraseAuto, Calamares::Original, iconSize ) );
     m_eraseButton->addToGroup( m_grp, InstallChoice::Erase );
 
     m_replaceButton = new PrettyRadioButton;
+    m_replaceButton->setObjectName( QStringLiteral( "replaceInstallChoice" ) );
 
     m_replaceButton->setIconSize( iconSize );
     m_replaceButton->setIcon(
@@ -305,6 +308,7 @@ ChoicePage::setupChoices()
     m_itemsLayout->addWidget( m_eraseButton );
 
     m_somethingElseButton = new PrettyRadioButton;
+    m_somethingElseButton->setObjectName( QStringLiteral( "manualInstallChoice" ) );
     m_somethingElseButton->setIconSize( iconSize );
     m_somethingElseButton->setIcon(
         Calamares::defaultPixmap( Calamares::PartitionManual, Calamares::Original, iconSize ) );

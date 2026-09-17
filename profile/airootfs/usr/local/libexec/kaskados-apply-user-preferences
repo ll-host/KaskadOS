@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target_root=${1:-}
+target_user=${2:-}
+brightness=${3:-}
+warm_light=${4:-}
+
+if [[ -z "$target_root" || "$target_root" != /* || ! "$target_user" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+    echo "Invalid target root or user" >&2
+    exit 2
+fi
+
+if [[ ! "$brightness" =~ ^[0-9]+$ ]] || (( brightness < 10 || brightness > 100 )); then
+    echo "Invalid brightness value: $brightness" >&2
+    exit 2
+fi
+
+if [[ "$warm_light" != 0 && "$warm_light" != 1 ]]; then
+    echo "Invalid warm-light value: $warm_light" >&2
+    exit 2
+fi
+
+passwd_record=$(awk -F: -v user="$target_user" '$1 == user { print $3 ":" $4 ":" $6; exit }' "$target_root/etc/passwd")
+if [[ -z "$passwd_record" ]]; then
+    echo "User $target_user does not exist in target system" >&2
+    exit 3
+fi
+
+IFS=: read -r target_uid target_gid user_home <<< "$passwd_record"
+target_home="${target_root%/}${user_home}"
+helper_dir="$target_home/.local/libexec"
+autostart_dir="$target_home/.config/autostart"
+helper_path="$helper_dir/kaskados-first-login-settings"
+desktop_path="$autostart_dir/kaskados-first-login-settings.desktop"
+
+install -d -m 0755 -o "$target_uid" -g "$target_gid" "$helper_dir" "$autostart_dir"
+
+cat > "$helper_path" <<'FIRST_LOGIN'
+#!/usr/bin/env bash
+
+brightnessctl set '@BRIGHTNESS@%' >/dev/null 2>&1 || true
+
+for _attempt in {1..15}; do
+    if command -v dms >/dev/null 2>&1; then
+        if [[ '@WARM_LIGHT@' == 1 ]]; then
+            dms ipc call night enable >/dev/null 2>&1 && break
+        else
+            dms ipc call night disable >/dev/null 2>&1 && break
+        fi
+    fi
+    sleep 1
+done
+
+rm -f -- "$HOME/.config/autostart/kaskados-first-login-settings.desktop"
+rm -f -- "$HOME/.local/libexec/kaskados-first-login-settings"
+FIRST_LOGIN
+
+sed -i \
+    -e "s/@BRIGHTNESS@/$brightness/g" \
+    -e "s/@WARM_LIGHT@/$warm_light/g" \
+    "$helper_path"
+
+cat > "$desktop_path" <<FIRST_LOGIN_DESKTOP
+[Desktop Entry]
+Type=Application
+Name=KaskadOS first login settings
+Exec=$user_home/.local/libexec/kaskados-first-login-settings
+X-KDE-autostart-after=panel
+NoDisplay=true
+FIRST_LOGIN_DESKTOP
+
+chmod 0755 "$helper_path"
+chmod 0644 "$desktop_path"
+chown "$target_uid:$target_gid" "$helper_path" "$desktop_path"

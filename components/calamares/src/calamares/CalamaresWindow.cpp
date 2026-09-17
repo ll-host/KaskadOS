@@ -470,10 +470,28 @@ CalamaresWindow::CalamaresWindow( QWidget* parent )
                                           ::getQmlNavigation,
                                           64 );
 
+    QWidget* brandHeader = new QWidget( baseWidget );
+    brandHeader->setObjectName( "kaskadBrandHeader" );
+    brandHeader->setFixedHeight( 72 );
+    auto* brandLayout = new QHBoxLayout( brandHeader );
+    brandLayout->setContentsMargins( 52, 14, 52, 8 );
+    brandLayout->setSpacing( 12 );
+    auto* brandLogo = new QLabel( brandHeader );
+    brandLogo->setObjectName( "kaskadBrandLogo" );
+    brandLogo->setFixedSize( 44, 44 );
+    brandLogo->setPixmap( branding->image( ImageEntry::ProductLogo, brandLogo->size() ) );
+    brandLogo->setScaledContents( true );
+    brandLayout->addWidget( brandLogo );
+    auto* brandName = new QLabel( branding->productName(), brandHeader );
+    brandName->setObjectName( "kaskadBrandName" );
+    brandLayout->addWidget( brandName );
+    brandLayout->addStretch();
+
     // Build up the contentsLayout (a VBox) top-to-bottom
     // .. note that the bottom is mirrored wrt. the top
     insertIf( contentsLayout, PanelSide::Top, sideBox, branding->sidebarSide() );
     insertIf( contentsLayout, PanelSide::Top, navigation, branding->navigationSide() );
+    contentsLayout->addWidget( brandHeader );
     contentsLayout->addWidget( m_viewManager->centralWidget() );
     insertIf( contentsLayout, PanelSide::Bottom, navigation, branding->navigationSide() );
     insertIf( contentsLayout, PanelSide::Bottom, sideBox, branding->sidebarSide() );

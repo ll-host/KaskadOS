@@ -118,7 +118,7 @@ PartitionViewStep::~PartitionViewStep()
 QString
 PartitionViewStep::prettyName() const
 {
-    return tr( "Partitions", "@label" );
+    return tr( "Диск", "@label" );
 }
 
 /** @brief Gather the pretty descriptions of all the partitioning jobs

@@ -41,6 +41,8 @@ SummaryModel::data( const QModelIndex& index, int role ) const
         return item.message;
     case WidgetRole:
         return item.widget ? QVariant::fromValue( item.widget ) : QVariant();
+    case StepRole:
+        return item.step ? QVariant::fromValue( static_cast< QObject* >( item.step ) ) : QVariant();
     default:
         return QVariant();
     }
@@ -68,7 +70,7 @@ SummaryModel::setSummaryList( const Calamares::ViewStepList& steps, bool withWid
             continue;
         }
 
-        m_summary << StepSummary { step->prettyName(), text, widget };
+        m_summary << StepSummary { step->prettyName(), text, widget, step };
     }
     endResetModel();
 }

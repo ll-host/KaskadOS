@@ -61,6 +61,14 @@ public:
      * (dvorak).
      */
     KeyboardVariantsModel* keyboardVariants() const;
+
+    /** @brief Override the automatically-selected secondary layout.
+     *
+     * A null string restores automatic selection, while an empty but non-null
+     * string explicitly disables the secondary layout.
+     */
+    void setAdditionalLayoutOverride( const QString& layout );
+    void setGroupSwitcher( const QString& groupSwitcher );
     /** @brief Call this to change application language
      *
      * The models (for keyboard model, layouts and variants) provide
@@ -78,6 +86,7 @@ signals:
     void prettyStatusChanged();
 
 private:
+    AdditionalLayoutInfo effectiveAdditionalLayoutInfo() const;
     void updateVariants( const QPersistentModelIndex& currentItem, QString currentVariant = QString() );
 
     /* These two methods are used in tandem to apply changes to the
@@ -105,6 +114,9 @@ private:
 
     // Layout (and corresponding info) added if current one doesn't support ASCII (e.g. Russian or Japanese)
     AdditionalLayoutInfo m_additionalLayoutInfo;
+    QString m_additionalLayoutOverride;
+    QString m_groupSwitcher = QStringLiteral( "grp:alt_shift_toggle" );
+    bool m_hasAdditionalLayoutOverride = false;
 
     QTimer m_applyTimer;
 

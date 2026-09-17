@@ -23,6 +23,9 @@ class WelcomePage;
 
 class CheckerContainer;
 class Config;
+class QLabel;
+class QCheckBox;
+class QSlider;
 class WelcomePage : public QWidget
 {
     Q_OBJECT
@@ -64,6 +67,9 @@ private:
     Ui::WelcomePage* ui;
     CheckerContainer* m_checkingWidget;
     Calamares::Locale::TranslationsModel* m_languages;
+    QSlider* m_brightnessSlider;
+    QLabel* m_brightnessValue;
+    QCheckBox* m_warmLightToggle;
 
     Config* m_conf;
 };

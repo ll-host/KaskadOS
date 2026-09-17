@@ -25,7 +25,9 @@
 
 #include <QBoxLayout>
 #include <QLabel>
+#include <QPushButton>
 #include <QScrollArea>
+#include <QTimer>
 
 SummaryPage::SummaryPage( Config* config, QWidget* parent )
     : QWidget()
@@ -78,20 +80,27 @@ createBodyLabel( const QString& text, const QPalette& bodyPalette )
     return label;
 }
 
-static QWidget*
-createStepWidget( const QString& description, QWidget* innerWidget, const QPalette& palette )
+static QPushButton*
+createStepWidget( const QString& title,
+                  const QString& description,
+                  QWidget* innerWidget,
+                  const QPalette& palette,
+                  Calamares::ViewStep* targetStep )
 {
-    QWidget* w = new QWidget();
+    auto* w = new QPushButton;
+    w->setObjectName( QStringLiteral( "summaryCard" ) );
+    w->setFlat( true );
+    w->setCursor( Qt::PointingHandCursor );
+    w->setToolTip( QObject::tr( "Изменить настройку" ) );
+
     QHBoxLayout* itemBodyLayout = new QHBoxLayout;
     w->setLayout( itemBodyLayout );
-
-    // Indent the inner box by a bit
-    itemBodyLayout->addSpacing( Calamares::defaultFontHeight() * 2 );
+    itemBodyLayout->setContentsMargins( 22, 14, 22, 14 );
     QVBoxLayout* itemBodyCoreLayout = new QVBoxLayout;
     itemBodyLayout->addLayout( itemBodyCoreLayout );
-    Calamares::unmarginLayout( itemBodyLayout );
+    itemBodyCoreLayout->setSpacing( 4 );
+    itemBodyCoreLayout->addWidget( createTitleLabel( title, w->font() ) );
 
-    itemBodyCoreLayout->addSpacing( Calamares::defaultFontHeight() / 2 );
     if ( innerWidget )
     {
         itemBodyCoreLayout->addWidget( innerWidget );
@@ -100,6 +109,33 @@ createStepWidget( const QString& description, QWidget* innerWidget, const QPalet
     {
         itemBodyCoreLayout->addWidget( createBodyLabel( description, palette ) );
     }
+
+    auto* arrow = new QLabel( QStringLiteral( "→" ), w );
+    arrow->setObjectName( QStringLiteral( "summaryCardArrow" ) );
+    itemBodyLayout->addWidget( arrow, 0, Qt::AlignVCenter );
+
+    QObject::connect( w,
+                      &QPushButton::clicked,
+                      w,
+                      [ targetStep ]
+                      {
+                          auto* manager = Calamares::ViewManager::instance();
+                          const int target = manager->viewSteps().indexOf( targetStep );
+                          if ( target < 0 || target >= manager->currentStepIndex() )
+                          {
+                              return;
+                          }
+                          QTimer::singleShot(
+                              0,
+                              manager,
+                              [ manager, target ]
+                              {
+                                  while ( manager->currentStepIndex() > target )
+                                  {
+                                      manager->back();
+                                  }
+                              } );
+                      } );
 
     return w;
 }
@@ -132,10 +168,6 @@ SummaryPage::buildWidgets( Config* config, SummaryViewStep* viewstep )
     m_layout = new QVBoxLayout( m_contentWidget );
     Calamares::unmarginLayout( m_layout );
 
-    QFont titleFont = font();
-    titleFont.setWeight( QFont::Light );
-    titleFont.setPointSize( Calamares::defaultFontSize() * 2 );
-
     QPalette bodyPalette( palette() );
     bodyPalette.setColor( WindowBackground, palette().window().color().lighter( 108 ) );
 
@@ -148,6 +180,8 @@ SummaryPage::buildWidgets( Config* config, SummaryViewStep* viewstep )
         QString title = model->data( rowIndex, SummaryModel::TitleRole ).toString();
         QString text = model->data( rowIndex, SummaryModel::MessageRole ).toString();
         QWidget* widget = model->data( rowIndex, SummaryModel::WidgetRole ).value< QWidget* >();
+        auto* targetStep
+            = qobject_cast< Calamares::ViewStep* >( model->data( rowIndex, SummaryModel::StepRole ).value< QObject* >() );
 
         if ( text.isEmpty() && !widget )
         {
@@ -159,8 +193,7 @@ SummaryPage::buildWidgets( Config* config, SummaryViewStep* viewstep )
             m_layout->addSpacing( SECTION_SPACING );
         }
 
-        m_layout->addWidget( createTitleLabel( title, titleFont ) );
-        m_layout->addWidget( createStepWidget( text, widget, bodyPalette ) );
+        m_layout->addWidget( createStepWidget( title, text, widget, bodyPalette, targetStep ) );
     }
     m_layout->addStretch();
 

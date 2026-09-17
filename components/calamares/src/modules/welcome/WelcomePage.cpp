@@ -18,6 +18,8 @@
 #include "CalamaresAbout.h"
 #include "CalamaresVersion.h"
 #include "Config.h"
+#include "GlobalStorage.h"
+#include "JobQueue.h"
 #include "Settings.h"
 #include "ViewManager.h"
 
@@ -30,17 +32,26 @@
 
 #include <QApplication>
 #include <QBoxLayout>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QFocusEvent>
+#include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
+#include <QProcess>
+#include <QSlider>
+#include <QVBoxLayout>
 
 WelcomePage::WelcomePage( Config* config, QWidget* parent )
     : QWidget( parent )
     , ui( new Ui::WelcomePage )
     , m_checkingWidget( new CheckerContainer( config, this ) )
     , m_languages( nullptr )
+    , m_brightnessSlider( new QSlider( Qt::Horizontal, this ) )
+    , m_brightnessValue( new QLabel( this ) )
+    , m_warmLightToggle( new QCheckBox( this ) )
     , m_conf( config )
 {
     using Branding = Calamares::Branding;
@@ -51,6 +62,79 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
     // insert system-check widget below welcome text
     const int welcome_text_idx = ui->verticalLayout->indexOf( ui->mainText );
     ui->verticalLayout->insertWidget( welcome_text_idx + 1, m_checkingWidget );
+
+    ui->aboveTextSpacer->changeSize( 20, 24, QSizePolicy::Minimum, QSizePolicy::Fixed );
+    ui->mainText->setObjectName( QStringLiteral( "displayPageTitle" ) );
+    ui->mainText->setAlignment( Qt::AlignLeft | Qt::AlignVCenter );
+
+    auto* subtitle = new QLabel( tr( "Яркость и цветовая температура" ), this );
+    subtitle->setObjectName( QStringLiteral( "pageSubtitle" ) );
+    ui->verticalLayout->insertWidget( welcome_text_idx + 1, subtitle );
+
+    auto* settingsCard = new QFrame( this );
+    settingsCard->setObjectName( QStringLiteral( "displaySettingsCard" ) );
+    auto* cardLayout = new QVBoxLayout( settingsCard );
+    cardLayout->setContentsMargins( 36, 28, 36, 28 );
+    cardLayout->setSpacing( 22 );
+
+    auto* brightnessHeader = new QHBoxLayout;
+    auto* brightnessTitle = new QLabel( tr( "Яркость экрана" ), settingsCard );
+    brightnessTitle->setObjectName( QStringLiteral( "settingTitle" ) );
+    m_brightnessValue->setObjectName( QStringLiteral( "settingValue" ) );
+    brightnessHeader->addWidget( brightnessTitle );
+    brightnessHeader->addStretch();
+    brightnessHeader->addWidget( m_brightnessValue );
+    cardLayout->addLayout( brightnessHeader );
+
+    m_brightnessSlider->setObjectName( QStringLiteral( "brightnessSlider" ) );
+    m_brightnessSlider->setRange( 10, 100 );
+    m_brightnessSlider->setValue( 78 );
+    m_brightnessSlider->setSingleStep( 1 );
+    m_brightnessSlider->setPageStep( 5 );
+    cardLayout->addWidget( m_brightnessSlider );
+
+    auto* separator = new QFrame( settingsCard );
+    separator->setObjectName( QStringLiteral( "settingsSeparator" ) );
+    separator->setFrameShape( QFrame::HLine );
+    cardLayout->addWidget( separator );
+
+    auto* warmLightRow = new QHBoxLayout;
+    auto* warmLightText = new QVBoxLayout;
+    auto* warmLightTitle = new QLabel( tr( "Тёплый свет" ), settingsCard );
+    warmLightTitle->setObjectName( QStringLiteral( "settingTitle" ) );
+    auto* warmLightDescription = new QLabel( tr( "Уменьшает холодный синий оттенок вечером" ), settingsCard );
+    warmLightDescription->setObjectName( QStringLiteral( "settingDescription" ) );
+    warmLightText->addWidget( warmLightTitle );
+    warmLightText->addWidget( warmLightDescription );
+    warmLightRow->addLayout( warmLightText );
+    warmLightRow->addStretch();
+    m_warmLightToggle->setObjectName( QStringLiteral( "warmLightToggle" ) );
+    warmLightRow->addWidget( m_warmLightToggle );
+    cardLayout->addLayout( warmLightRow );
+
+    ui->verticalLayout->insertWidget( welcome_text_idx + 3, settingsCard );
+    ui->verticalLayout->setStretchFactor( settingsCard, 1 );
+
+    auto updatePreferences = [ this ]()
+    {
+        const int brightness = m_brightnessSlider->value();
+        m_brightnessValue->setText( tr( "%1%" ).arg( brightness ) );
+        if ( Calamares::JobQueue::instance() && Calamares::JobQueue::instance()->globalStorage() )
+        {
+            auto* gs = Calamares::JobQueue::instance()->globalStorage();
+            gs->insert( QStringLiteral( "kaskadBrightness" ), brightness );
+            gs->insert( QStringLiteral( "kaskadWarmLight" ), m_warmLightToggle->isChecked() ? 1 : 0 );
+        }
+    };
+    connect( m_brightnessSlider, &QSlider::valueChanged, this, [ updatePreferences ]( int ) { updatePreferences(); } );
+    connect( m_warmLightToggle, &QCheckBox::toggled, this, [ updatePreferences ]( bool ) { updatePreferences(); } );
+    connect( m_brightnessSlider, &QSlider::sliderReleased, this, [ this ]()
+    {
+        QProcess::startDetached(
+            QStringLiteral( "brightnessctl" ),
+            { QStringLiteral( "set" ), QStringLiteral( "%1%" ).arg( m_brightnessSlider->value() ) } );
+    } );
+    updatePreferences();
 
     // insert optional logo banner image above welcome text
     QString bannerPath = Branding::instance()->imagePath( Branding::ProductBanner );
@@ -72,6 +156,14 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
     }
 
     initLanguages();
+
+    m_checkingWidget->hide();
+    ui->languageIcon->hide();
+    ui->languageWidget->hide();
+    ui->donateButton->hide();
+    ui->supportButton->hide();
+    ui->knownIssuesButton->hide();
+    ui->releaseNotesButton->hide();
 
     CALAMARES_RETRANSLATE_SLOT( &WelcomePage::retranslate );
 
@@ -174,9 +266,9 @@ WelcomePage::setupButton( Button role, const QString& url )
 void
 WelcomePage::focusInEvent( QFocusEvent* e )
 {
-    if ( ui->languageWidget )
+    if ( m_brightnessSlider )
     {
-        ui->languageWidget->setFocus();
+        m_brightnessSlider->setFocus();
     }
     e->accept();
 }
@@ -205,10 +297,8 @@ WelcomePage::setLanguageIcon( QPixmap i )
 void
 WelcomePage::retranslate()
 {
-    const QString message = m_conf->genericWelcomeMessage();
-
-    ui->mainText->setText( message.arg( Calamares::Branding::instance()->versionedName() ) );
     ui->retranslateUi( this );
+    ui->mainText->setText( tr( "Настройте экран" ) );
     ui->supportButton->setText(
         tr( "%1 Support", "@action" ).arg( Calamares::Branding::instance()->shortProductName() ) );
 }

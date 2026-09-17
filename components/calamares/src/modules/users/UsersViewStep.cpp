@@ -45,7 +45,7 @@ UsersViewStep::~UsersViewStep()
 QString
 UsersViewStep::prettyName() const
 {
-    return tr( "Users" );
+    return tr( "Профиль владельца" );
 }
 
 

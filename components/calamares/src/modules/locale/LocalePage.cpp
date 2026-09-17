@@ -32,6 +32,14 @@ LocalePage::LocalePage( Config* config, QWidget* parent )
 {
     QBoxLayout* mainLayout = new QVBoxLayout;
 
+    auto* title = new QLabel( tr( "Язык и регион" ), this );
+    title->setProperty( "heading", true );
+    auto* subtitle = new QLabel( tr( "Выберите язык системы, регион и часовой пояс." ), this );
+    subtitle->setObjectName( QStringLiteral( "pageSubtitle" ) );
+    mainLayout->addWidget( title );
+    mainLayout->addWidget( subtitle );
+    mainLayout->addSpacing( 12 );
+
     QBoxLayout* tzwLayout = new QHBoxLayout;
     m_tzWidget = new TimeZoneWidget( m_config->zonesModel(), this );
     tzwLayout->addStretch();
