@@ -146,6 +146,23 @@ Singleton {
     }
 
     Process {
+        id: suspendProcess
+
+        property string errorOutput: ""
+
+        stderr: SplitParser {
+            splitMarker: "\n"
+            onRead: data => suspendProcess.errorOutput += data.trim() + "\n"
+        }
+
+        onExited: function (exitCode) {
+            if (exitCode !== 0)
+                ToastService.showError(I18n.tr("Suspend failed"), errorOutput.trim());
+            errorOutput = "";
+        }
+    }
+
+    Process {
         id: detectPrimeRunProcess
         running: false
         command: ["sh", "-c", "command -v prime-run"]
@@ -380,11 +397,13 @@ Singleton {
     }
 
     function suspend() {
-        if (SettingsData.customPowerActionSuspend.length === 0) {
-            Quickshell.execDetached(powerManagerCommand("suspend"));
-        } else {
-            Quickshell.execDetached(["sh", "-c", SettingsData.customPowerActionSuspend]);
-        }
+        if (suspendProcess.running)
+            return;
+        suspendProcess.errorOutput = "";
+        suspendProcess.command = SettingsData.customPowerActionSuspend.length === 0
+            ? powerManagerCommand("suspend")
+            : ["sh", "-c", SettingsData.customPowerActionSuspend];
+        suspendProcess.running = true;
     }
 
     function hibernate() {

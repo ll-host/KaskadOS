@@ -11,6 +11,7 @@
 #include <QDBusInterface>
 #include <QDBusMessage>
 #include <QDBusReply>
+#include <QJsonDocument>
 
 namespace
 {
@@ -286,7 +287,11 @@ bool MacqueenIpcClient::applyOutputConfiguration(const QVariantList &outputs)
     if (!m_available || m_protocolVersion < 11 || outputs.isEmpty()) {
         return false;
     }
-    const bool applied = call(QStringLiteral("applyOutputConfiguration"), {outputs}).toBool();
+    const bool applied = m_protocolVersion >= 12
+        ? call(QStringLiteral("applyOutputConfigurationJson"), {
+            QString::fromUtf8(QJsonDocument::fromVariant(outputs).toJson(QJsonDocument::Compact))
+        }).toBool()
+        : call(QStringLiteral("applyOutputConfiguration"), {outputs}).toBool();
     if (applied) {
         refreshOutputs();
     }

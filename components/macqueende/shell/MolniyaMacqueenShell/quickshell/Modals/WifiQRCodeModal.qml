@@ -16,10 +16,12 @@ DankModal {
 
     property bool disablePopupTransparency: true
     property string wifiSSID: ""
+    property string wifiPassword: ""
+    property bool passwordLoading: false
     property string themedQrCodePath: ""
     property string normalQrCodePath: ""
     modalWidth: 420
-    modalHeight: 480
+    modalHeight: 560
     onBackgroundClicked: hide()
     onOpened: {
         Qt.callLater(() => {
@@ -32,7 +34,55 @@ DankModal {
 
     function show(ssid) {
         wifiSSID = ssid;
+        wifiPassword = "";
+        passwordLoading = true;
         fetchNetworkQRCode(ssid);
+        fetchNetworkPassword(ssid);
+    }
+
+    function unescapeWifiValue(value) {
+        let result = "";
+        let escaped = false;
+        for (let i = 0; i < value.length; i++) {
+            const ch = value[i];
+            if (escaped) {
+                result += ch === "n" ? "\n" : ch;
+                escaped = false;
+            } else if (ch === "\\") {
+                escaped = true;
+            } else {
+                result += ch;
+            }
+        }
+        return result;
+    }
+
+    function wifiField(content, field) {
+        const marker = field + ":";
+        const start = content.indexOf(marker);
+        if (start < 0)
+            return "";
+        let value = "";
+        let escaped = false;
+        for (let i = start + marker.length; i < content.length; i++) {
+            const ch = content[i];
+            if (!escaped && ch === ";")
+                break;
+            value += ch;
+            escaped = !escaped && ch === "\\";
+            if (ch !== "\\")
+                escaped = false;
+        }
+        return unescapeWifiValue(value);
+    }
+
+    function fetchNetworkPassword(ssid) {
+        DMSService.sendRequest("network.qrcode-content", { ssid: ssid }, response => {
+            passwordLoading = false;
+            if (response.error)
+                return;
+            wifiPassword = wifiField(response.result || "", "P");
+        });
     }
 
     function hide() {
@@ -153,7 +203,7 @@ DankModal {
 
                 Image {
                     id: qrCodeImg
-                    height: parent.height - parent.spacing - modalTitle.height
+                    height: 330
                     width: height
                     anchors.horizontalCenter: parent.horizontalCenter
 
@@ -162,6 +212,49 @@ DankModal {
                         anchors.fill: source
                         colorization: 1.0
                         colorizationColor: Theme.primary
+                    }
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: 64
+                    radius: Theme.cornerRadius
+                    color: Theme.surfaceContainerHighest
+                    visible: root.passwordLoading || root.wifiPassword.length > 0
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: Theme.spacingM
+                        anchors.rightMargin: Theme.spacingS
+                        spacing: Theme.spacingS
+
+                        Column {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            StyledText {
+                                text: "Пароль Wi‑Fi"
+                                font.pixelSize: Theme.fontSizeSmall
+                                color: Theme.surfaceVariantText
+                            }
+
+                            StyledText {
+                                text: root.passwordLoading ? "Загрузка…" : root.wifiPassword
+                                font.pixelSize: Theme.fontSizeMedium
+                                color: Theme.surfaceText
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+                        }
+
+                        DankActionButton {
+                            visible: !root.passwordLoading && root.wifiPassword.length > 0
+                            iconName: "content_copy"
+                            onClicked: {
+                                Quickshell.execDetached(["dms", "cl", "copy", root.wifiPassword]);
+                                ToastService.showInfo("Пароль скопирован");
+                            }
+                        }
                     }
                 }
             }

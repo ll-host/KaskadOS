@@ -56,6 +56,7 @@ hdparm
 hwinfo
 hyperv
 intel-ucode
+inter-font
 irssi
 iw
 iwd
@@ -101,6 +102,10 @@ networkmanager
 nfs-utils
 nilfs-utils
 nmap
+noto-fonts
+noto-fonts-cjk
+noto-fonts-emoji
+noto-fonts-extra
 ntfsprogs
 nvme-cli
 open-iscsi
@@ -155,6 +160,9 @@ tmux
 tpm2-tools
 tpm2-tss
 ttf-dejavu
+ttf-fira-code
+ttf-material-symbols-variable
+ttf-nerd-fonts-symbols
 udftools
 umu-launcher
 unrar

@@ -9,12 +9,14 @@ import qs.Modules.Settings.Widgets
 SettingsCard {
     id: root
 
+    property bool showCloseButton: true
+
     signal closeRequested
     signal applyWallpaper(string path)
 
     tab: "wallpaper"
     tags: ["wallpaper", "online", "wallhaven", "search", "download"]
-    title: I18n.tr("Online wallpapers")
+    title: "Онлайн-обои"
     settingKey: "onlineWallpapers"
     iconName: "travel_explore"
 
@@ -38,13 +40,14 @@ SettingsCard {
             iconSize: Theme.iconSizeSmall
             backgroundColor: "transparent"
             iconColor: Theme.surfaceVariantText
+            visible: root.showCloseButton
             onClicked: root.closeRequested()
         }
     ]
 
     StyledText {
         width: parent.width
-        text: I18n.tr("Search and install wallpapers without leaving settings. Only safe content is shown.")
+        text: "Найдите обои, посмотрите превью и примените их прямо здесь."
         color: Theme.surfaceVariantText
         font.pixelSize: Theme.fontSizeSmall
         wrapMode: Text.WordWrap
@@ -57,7 +60,7 @@ SettingsCard {
         DankTextField {
             id: searchField
             width: parent.width - searchButton.width - randomButton.width - Theme.spacingS * 2
-            placeholderText: I18n.tr("Mountains, space, minimalism…")
+            placeholderText: "Горы, космос, минимализм…"
             text: WallhavenService.query
             backgroundColor: Theme.surfaceContainerHighest
             onAccepted: WallhavenService.search(text, 1)
@@ -175,9 +178,20 @@ SettingsCard {
 
                 StyledText {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: WallhavenService.error || I18n.tr("Nothing found")
+                    text: WallhavenService.error || "Ничего не найдено"
                     color: Theme.surfaceVariantText
                     font.pixelSize: Theme.fontSizeMedium
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    width: Math.min(320, wallpaperGrid.width - Theme.spacingL * 2)
+                }
+
+                DankButton {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: WallhavenService.error !== ""
+                    text: "Повторить"
+                    enabled: !WallhavenService.loading
+                    onClicked: WallhavenService.search(searchField.text, WallhavenService.page || 1)
                 }
             }
         }
@@ -189,7 +203,7 @@ SettingsCard {
 
         DankButton {
             id: previousButton
-            text: I18n.tr("Previous")
+            text: "Назад"
             enabled: WallhavenService.page > 1 && !WallhavenService.loading
             onClicked: WallhavenService.previousPage()
         }
@@ -201,7 +215,7 @@ SettingsCard {
 
             StyledText {
                 anchors.centerIn: parent
-                text: I18n.tr("Page") + " " + WallhavenService.page
+                text: "Страница " + WallhavenService.page
                 color: Theme.surfaceVariantText
                 font.pixelSize: Theme.fontSizeSmall
             }
@@ -209,14 +223,14 @@ SettingsCard {
 
         DankButton {
             id: nextButton
-            text: I18n.tr("Next")
+            text: "Далее"
             enabled: WallhavenService.page < WallhavenService.lastPage && !WallhavenService.loading
             onClicked: WallhavenService.nextPage()
         }
 
         DankButton {
             id: applyButton
-            text: WallhavenService.downloading ? I18n.tr("Downloading…") : I18n.tr("Download and apply")
+            text: WallhavenService.downloading ? "Загрузка…" : "Скачать и применить"
             enabled: WallhavenService.selectedWallpaper !== null && !WallhavenService.downloading
             onClicked: WallhavenService.download(WallhavenService.selectedWallpaper)
         }

@@ -79,6 +79,12 @@ Rectangle {
                     "tabIndex": 0
                 },
                 {
+                    "id": "online_wallpapers",
+                    "text": "Онлайн-обои",
+                    "icon": "travel_explore",
+                    "tabIndex": 49
+                },
+                {
                     "id": "theme",
                     "text": I18n.tr("Theme & Colors"),
                     "icon": "format_paint",
@@ -134,12 +140,6 @@ Rectangle {
                     "text": I18n.tr("Widgets"),
                     "icon": "widgets",
                     "tabIndex": 22
-                },
-                {
-                    "id": "workspaces",
-                    "text": I18n.tr("Workspaces"),
-                    "icon": "view_module",
-                    "tabIndex": 4
                 },
                 {
                     "id": "frame",

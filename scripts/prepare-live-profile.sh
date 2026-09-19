@@ -25,10 +25,14 @@ readonly DESKTOP_PACKAGE_SOURCE="${PROJECT_DIR}/repository/packages/kaskados-des
 readonly DGOP_BUILD_SCRIPT="${SCRIPT_DIR}/build-dgop-package.sh"
 readonly BOOTSTRAP_REPOSITORY="${BUILD_ROOT}/repository-bootstrap/x86_64"
 readonly BOOTSTRAP_PACKAGE_CACHE="${BUILD_ROOT}/repository-bootstrap/cache"
+readonly SOURCE_CACHE="${BUILD_ROOT}/source-cache"
 readonly NVIDIA_580XX_SOURCE="${BUILD_ROOT}/repository-bootstrap/nvidia-580xx-utils"
 readonly NVIDIA_580XX_32_SOURCE="${BUILD_ROOT}/repository-bootstrap/lib32-nvidia-580xx-utils"
 readonly NVIDIA_580XX_COMMIT="85c38619ce2267787d0515baa443739cb9d2883c"
 readonly NVIDIA_580XX_32_COMMIT="bbe7b771c897f78e518ab4453b0bc9210ef2f201"
+readonly NVIDIA_580XX_VERSION="580.178.04"
+readonly NVIDIA_580XX_INSTALLER="NVIDIA-Linux-x86_64-${NVIDIA_580XX_VERSION}.run"
+readonly NVIDIA_580XX_INSTALLER_SHA256="5975a86ee45bffcb626f51ae33d1169b108186a2ea47ad651e72f13fa4b6d6f9"
 readonly PROFILE_DIR="${PROFILE_DIR:-${BUILD_ROOT}/iso-profile}"
 readonly BUILD_JOBS="${BUILD_JOBS:-$(nproc)}"
 readonly MACQUEEN_BUILD_JOBS="${MACQUEEN_BUILD_JOBS:-8}"
@@ -106,14 +110,14 @@ fi
 install -d -m 0755 \
   "${BOOTSTRAP_REPOSITORY}" \
   "${BOOTSTRAP_PACKAGE_CACHE}" \
-  "${BUILD_ROOT}/repository-bootstrap/work" \
-  "${BUILD_ROOT}/repository-bootstrap/sources"
+  "${SOURCE_CACHE}" \
+  "${BUILD_ROOT}/repository-bootstrap/work"
 (
   cd -- "${KEYRING_PACKAGE_SOURCE}"
   env \
     BUILDDIR="${BUILD_ROOT}/repository-bootstrap/work" \
     PKGDEST="${BOOTSTRAP_REPOSITORY}" \
-    SRCDEST="${BUILD_ROOT}/repository-bootstrap/sources" \
+    SRCDEST="${SOURCE_CACHE}" \
     makepkg --cleanbuild --force --nodeps
 )
 mapfile -t keyring_packages < <(
@@ -158,13 +162,38 @@ fetch_aur_snapshot \
   "${NVIDIA_580XX_32_COMMIT}" \
   "${NVIDIA_580XX_32_SOURCE}"
 
+# The NVIDIA installer is almost 400 MiB and the upstream server sometimes
+# closes a TLS connection early. Keep it outside the disposable bootstrap
+# tree, resume a partial download, and retry transient failures.
+nvidia_installer_path="${SOURCE_CACHE}/${NVIDIA_580XX_INSTALLER}"
+nvidia_installer_partial="${nvidia_installer_path}.part"
+if [[ ! -f "${nvidia_installer_path}" ]]; then
+  curl_args=(
+    --fail
+    --location
+    --retry 12
+    --retry-all-errors
+    --retry-delay 5
+    --connect-timeout 30
+    --output "${nvidia_installer_partial}"
+  )
+  [[ -f "${nvidia_installer_partial}" ]] && curl_args+=(--continue-at -)
+  curl "${curl_args[@]}" \
+    "https://download.nvidia.com/XFree86/Linux-x86_64/${NVIDIA_580XX_VERSION}/${NVIDIA_580XX_INSTALLER}"
+  if ! printf '%s  %s\n' "${NVIDIA_580XX_INSTALLER_SHA256}" "${nvidia_installer_partial}" | sha256sum --check --status; then
+    mv -- "${nvidia_installer_partial}" "${nvidia_installer_partial}.invalid"
+    die 'контрольная сумма установщика NVIDIA не совпала'
+  fi
+  mv -- "${nvidia_installer_partial}" "${nvidia_installer_path}"
+fi
+
 for nvidia_source in "${NVIDIA_580XX_SOURCE}" "${NVIDIA_580XX_32_SOURCE}"; do
   (
     cd -- "${nvidia_source}"
     env \
       BUILDDIR="${BUILD_ROOT}/repository-bootstrap/work" \
       PKGDEST="${BOOTSTRAP_REPOSITORY}" \
-      SRCDEST="${BUILD_ROOT}/repository-bootstrap/sources" \
+      SRCDEST="${SOURCE_CACHE}" \
       makepkg --cleanbuild --force --nodeps
   )
 done
@@ -507,7 +536,7 @@ desktop_pkgver="$(tr '-' '_' < "${MACQUEENDE_SOURCE}/VERSION" | tr -d '\n')"
     KASKADOS_DESKTOP_PKGVER="${desktop_pkgver}" \
     BUILDDIR="${BUILD_ROOT}/repository-bootstrap/work" \
     PKGDEST="${BOOTSTRAP_REPOSITORY}" \
-    SRCDEST="${BUILD_ROOT}/repository-bootstrap/sources" \
+    SRCDEST="${SOURCE_CACHE}" \
     makepkg --cleanbuild --force --nodeps
 )
 mapfile -t desktop_packages < <(

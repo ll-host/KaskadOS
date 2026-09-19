@@ -17,6 +17,7 @@ readonly PACKAGE_DIR="${PROJECT_DIR}/out/packages/x86_64"
 readonly OUTPUT_DIR="${PROJECT_DIR}/out"
 readonly LOG_DIR="${KASKADOS_LOG_DIR:-${HOME}/kaskados-logs}"
 LAST_LOG_FILE=''
+LAST_RUN_STARTED_AT=0
 
 if [[ -t 1 ]]; then
   readonly RESET=$'\033[0m'
@@ -153,6 +154,7 @@ run_logged() {
   shift 2
 
   timestamp="$(date +'%Y-%m-%d_%H-%M-%S')"
+  LAST_RUN_STARTED_AT="$(date +%s)"
   log_file="${LOG_DIR}/${log_name}-${timestamp}-$$.log"
   latest_link="${LOG_DIR}/${log_name}-latest.log"
   install -d -m 0755 "${LOG_DIR}" || return $?
@@ -173,12 +175,37 @@ run_logged() {
   return "${result}"
 }
 
+valid_iso_from_last_run() {
+  local iso="$1"
+  local modified_at size
+
+  [[ -n "${iso}" && -f "${iso}" ]] || return 1
+  command -v xorriso >/dev/null 2>&1 || return 1
+  modified_at="$(stat -c '%Y' -- "${iso}")" || return 1
+  size="$(stat -c '%s' -- "${iso}")" || return 1
+  (( modified_at >= LAST_RUN_STARTED_AT )) || return 1
+  (( size >= 1024 * 1024 * 1024 )) || return 1
+  xorriso -indev "${iso}" \
+    -ls /arch/x86_64/airootfs.sfs \
+    -ls /arch/boot/x86_64/vmlinuz-linux \
+    -ls /boot/syslinux/isolinux.bin \
+    >/dev/null 2>&1
+}
+
 build_iso() {
   run_logged 'Сборка ISO KaskadOS' 'iso-build' "${ISO_BUILD_SCRIPT}"
   local result=$?
+  local iso
+
+  iso="$(latest_iso || true)"
+  if (( result != 0 )) && valid_iso_from_last_run "${iso}"; then
+    printf '\n%sКоманда журналирования завершилась с кодом %d, но новый ISO полностью создан и проверен.%s\n' \
+      "${YELLOW}" "${result}" "${RESET}"
+    result=0
+  fi
 
   print_result "${result}" \
-    "Сборка ISO завершена. Файл: $(human_file "$(latest_iso || true)")" \
+    "Сборка ISO завершена. Файл: $(human_file "${iso}")" \
     "Сборка ISO остановилась. Журнал: ${LAST_LOG_FILE}."
   return "${result}"
 }

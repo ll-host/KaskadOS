@@ -193,7 +193,17 @@ getWidgetNavigation( Calamares::DebugWindowManager*,
         QObject::connect(
             viewManager, &Calamares::ViewManager::backIconChanged, [ = ]( QString n ) { setButtonIcon( back, n ); } );
         QObject::connect(
-            viewManager, &Calamares::ViewManager::backAndNextVisibleChanged, back, &QPushButton::setVisible );
+            viewManager,
+            &Calamares::ViewManager::backAndNextVisibleChanged,
+            back,
+            [ = ]( bool visible ) { back->setVisible( visible && viewManager->currentStepIndex() > 0 ); } );
+        QObject::connect(
+            viewManager,
+            &Calamares::ViewManager::currentStepChanged,
+            back,
+            [ = ]()
+            { back->setVisible( viewManager->backAndNextVisible() && viewManager->currentStepIndex() > 0 ); } );
+        back->setVisible( viewManager->backAndNextVisible() && viewManager->currentStepIndex() > 0 );
         bottomLayout->addWidget( back );
     }
     {

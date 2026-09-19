@@ -25,6 +25,7 @@ class CheckerContainer;
 class Config;
 class QLabel;
 class QCheckBox;
+class QResizeEvent;
 class QSlider;
 class WelcomePage : public QWidget
 {
@@ -59,6 +60,7 @@ public slots:
 
 protected:
     void focusInEvent( QFocusEvent* e ) override;  //choose the child widget to focus
+    void resizeEvent( QResizeEvent* e ) override;
 
 private:
     /// @brief Fill the list of languages with the available translations

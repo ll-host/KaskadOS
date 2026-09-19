@@ -52,6 +52,21 @@ FocusScope {
         }
 
         Loader {
+            id: onlineWallpapersLoader
+            anchors.fill: parent
+            active: root.currentIndex === 49
+            visible: active
+            focus: active
+
+            sourceComponent: OnlineWallpapersTab {}
+
+            onActiveChanged: {
+                if (active && item)
+                    Qt.callLater(() => item.forceActiveFocus());
+            }
+        }
+
+        Loader {
             id: timeWeatherLoader
             anchors.fill: parent
             active: root.currentIndex === 1

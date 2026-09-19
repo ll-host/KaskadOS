@@ -40,8 +40,13 @@ QFrame#displaySettingsCard {
     background: #1B211E;
     border: 1px solid #2D3932;
     border-radius: 24px;
-    margin-top: 22px;
-    margin-bottom: 18px;
+}
+
+QLabel#settingIcon {
+    color: #9BD9B4;
+    font-family: "Noto Sans Symbols 2", "Noto Sans Symbols", sans-serif;
+    font-size: 34px;
+    font-weight: 500;
 }
 
 QWidget#keyboardOptionsCard {
@@ -83,6 +88,7 @@ QFrame#settingsSeparator {
 
 QSlider#brightnessSlider {
     min-height: 30px;
+    background: transparent;
 }
 
 QSlider#brightnessSlider::groove:horizontal {

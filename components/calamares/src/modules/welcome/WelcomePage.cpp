@@ -41,6 +41,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QProcess>
+#include <QResizeEvent>
 #include <QSlider>
 #include <QVBoxLayout>
 
@@ -58,6 +59,7 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
 
     const int defaultFontHeight = Calamares::defaultFontHeight();
     ui->setupUi( this );
+    ui->verticalLayout->setAlignment( Qt::AlignTop );
 
     // insert system-check widget below welcome text
     const int welcome_text_idx = ui->verticalLayout->indexOf( ui->mainText );
@@ -73,18 +75,26 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
 
     auto* settingsCard = new QFrame( this );
     settingsCard->setObjectName( QStringLiteral( "displaySettingsCard" ) );
+    settingsCard->setFixedHeight( 340 );
     auto* cardLayout = new QVBoxLayout( settingsCard );
-    cardLayout->setContentsMargins( 36, 28, 36, 28 );
-    cardLayout->setSpacing( 22 );
+    cardLayout->setContentsMargins( 48, 34, 48, 34 );
+    cardLayout->setSpacing( 0 );
 
     auto* brightnessHeader = new QHBoxLayout;
+    brightnessHeader->setSpacing( 16 );
+    auto* brightnessIcon = new QLabel( QStringLiteral( "☀" ), settingsCard );
+    brightnessIcon->setObjectName( QStringLiteral( "settingIcon" ) );
+    brightnessIcon->setAlignment( Qt::AlignCenter );
+    brightnessIcon->setFixedSize( 48, 48 );
     auto* brightnessTitle = new QLabel( tr( "Яркость экрана" ), settingsCard );
     brightnessTitle->setObjectName( QStringLiteral( "settingTitle" ) );
     m_brightnessValue->setObjectName( QStringLiteral( "settingValue" ) );
+    brightnessHeader->addWidget( brightnessIcon );
     brightnessHeader->addWidget( brightnessTitle );
     brightnessHeader->addStretch();
     brightnessHeader->addWidget( m_brightnessValue );
     cardLayout->addLayout( brightnessHeader );
+    cardLayout->addSpacing( 26 );
 
     m_brightnessSlider->setObjectName( QStringLiteral( "brightnessSlider" ) );
     m_brightnessSlider->setRange( 10, 100 );
@@ -92,28 +102,33 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
     m_brightnessSlider->setSingleStep( 1 );
     m_brightnessSlider->setPageStep( 5 );
     cardLayout->addWidget( m_brightnessSlider );
+    cardLayout->addSpacing( 49 );
 
     auto* separator = new QFrame( settingsCard );
     separator->setObjectName( QStringLiteral( "settingsSeparator" ) );
     separator->setFrameShape( QFrame::HLine );
     cardLayout->addWidget( separator );
+    cardLayout->addSpacing( 20 );
 
     auto* warmLightRow = new QHBoxLayout;
-    auto* warmLightText = new QVBoxLayout;
+    warmLightRow->setSpacing( 16 );
+    auto* warmLightIcon = new QLabel( QStringLiteral( "☾" ), settingsCard );
+    warmLightIcon->setObjectName( QStringLiteral( "settingIcon" ) );
+    warmLightIcon->setAlignment( Qt::AlignCenter );
+    warmLightIcon->setFixedSize( 48, 48 );
     auto* warmLightTitle = new QLabel( tr( "Тёплый свет" ), settingsCard );
     warmLightTitle->setObjectName( QStringLiteral( "settingTitle" ) );
-    auto* warmLightDescription = new QLabel( tr( "Уменьшает холодный синий оттенок вечером" ), settingsCard );
-    warmLightDescription->setObjectName( QStringLiteral( "settingDescription" ) );
-    warmLightText->addWidget( warmLightTitle );
-    warmLightText->addWidget( warmLightDescription );
-    warmLightRow->addLayout( warmLightText );
+    warmLightRow->addWidget( warmLightIcon );
+    warmLightRow->addWidget( warmLightTitle );
     warmLightRow->addStretch();
     m_warmLightToggle->setObjectName( QStringLiteral( "warmLightToggle" ) );
     warmLightRow->addWidget( m_warmLightToggle );
     cardLayout->addLayout( warmLightRow );
+    cardLayout->addStretch();
 
-    ui->verticalLayout->insertWidget( welcome_text_idx + 3, settingsCard );
-    ui->verticalLayout->setStretchFactor( settingsCard, 1 );
+    ui->verticalLayout->insertSpacing( welcome_text_idx + 3, 52 );
+    ui->verticalLayout->insertWidget( welcome_text_idx + 4, settingsCard );
+    ui->verticalLayout->setAlignment( settingsCard, Qt::AlignTop );
 
     auto updatePreferences = [ this ]()
     {
@@ -175,6 +190,17 @@ WelcomePage::WelcomePage( Config* config, QWidget* parent )
              &Calamares::RequirementsModel::progressMessageChanged,
              m_checkingWidget,
              &CheckerContainer::requirementsProgress );
+}
+
+void
+WelcomePage::resizeEvent( QResizeEvent* e )
+{
+    QWidget::resizeEvent( e );
+
+    constexpr int contentWidth = 920;
+    constexpr int minimumSideMargin = 48;
+    const int sideMargin = qMax( minimumSideMargin, ( e->size().width() - contentWidth ) / 2 );
+    ui->horizontalLayout->setContentsMargins( sideMargin, 0, sideMargin, 0 );
 }
 
 void

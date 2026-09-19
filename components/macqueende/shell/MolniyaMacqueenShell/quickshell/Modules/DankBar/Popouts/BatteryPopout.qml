@@ -554,7 +554,7 @@ DankPopout {
                     DankButtonGroup {
                         id: profileButtonGroup
 
-                        property var profileModel: PowerProfileWatcher.availableProfiles
+                        property var profileModel: Array.from(new Set(PowerProfileWatcher.availableProfiles || []))
                         property int currentProfileIndex: {
                             if (typeof PowerProfiles === "undefined")
                                 return 1;

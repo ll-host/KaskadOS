@@ -410,8 +410,8 @@ Item {
                     settingKey: "powerMenuDefaultAction"
                     tags: ["power", "menu", "default", "action", "reboot", "logout", "shutdown"]
                     text: I18n.tr("Default selected action")
-                    options: [I18n.tr("Reboot"), I18n.tr("Log Out"), I18n.tr("Power Off"), I18n.tr("Lock"), I18n.tr("Suspend"), I18n.tr("Restart DMS"), I18n.tr("Hibernate")]
-                    property var actionValues: ["reboot", "logout", "poweroff", "lock", "suspend", "restart", "hibernate"]
+                    options: [I18n.tr("Reboot"), I18n.tr("Log Out"), I18n.tr("Power Off"), I18n.tr("Lock"), I18n.tr("Suspend"), I18n.tr("Hibernate")]
+                    property var actionValues: ["reboot", "logout", "poweroff", "lock", "suspend", "hibernate"]
 
                     Component.onCompleted: {
                         const currentAction = SettingsData.powerMenuDefaultAction || "logout";
@@ -461,11 +461,6 @@ Item {
                                 label: I18n.tr("Show Suspend")
                             },
                             {
-                                key: "restart",
-                                label: I18n.tr("Show Restart DMS"),
-                                desc: I18n.tr("Restart the DankMaterialShell")
-                            },
-                            {
                                 key: "switchuser",
                                 label: I18n.tr("Show Switch User"),
                                 desc: I18n.tr("Opens a picker of other active sessions on this seat")
@@ -510,7 +505,7 @@ Item {
                     settingKey: "powerActionConfirm"
                     tags: ["power", "confirm", "hold", "button", "safety"]
                     text: I18n.tr("Hold to Confirm Power Actions")
-                    description: I18n.tr("Require holding button/key to confirm power off, restart, suspend, hibernate and logout")
+                    description: I18n.tr("Require holding button/key to confirm power off, restart, hibernate and logout")
                     checked: SettingsData.powerActionConfirm
                     onToggled: checked => SettingsData.set("powerActionConfirm", checked)
                 }

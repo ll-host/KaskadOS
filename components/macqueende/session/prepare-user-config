@@ -15,9 +15,8 @@ if [[ ! -f "$user_config_dir/macqueenglobals" ]]; then
     cp "$repo_root/config/macqueenglobals" "$user_config_dir/macqueenglobals"
 fi
 
-# Releases before WorkspaceDefaultsVersion=1 inherited KWin's one-desktop
-# fallback. Migrate that generated default exactly once. Counts already chosen
-# by the user are preserved, and future launches never change the value.
+# WorkspaceDefaultsVersion=2 switches from a fixed desktop count to the
+# GNOME-style dynamic workspace manager provided by the shell.
 if command -v kreadconfig6 >/dev/null && command -v kwriteconfig6 >/dev/null; then
     defaults_version=$(
         kreadconfig6 \
@@ -28,7 +27,7 @@ if command -v kreadconfig6 >/dev/null && command -v kwriteconfig6 >/dev/null; th
     )
     [[ "$defaults_version" =~ ^[0-9]+$ ]] || defaults_version=0
 
-    if (( defaults_version < 1 )); then
+    if (( defaults_version < 2 )); then
         desktop_count=$(
             kreadconfig6 \
                 --file "$macqueen_config" \
@@ -38,11 +37,11 @@ if command -v kreadconfig6 >/dev/null && command -v kwriteconfig6 >/dev/null; th
         )
         [[ "$desktop_count" =~ ^[0-9]+$ ]] || desktop_count=1
 
-        if (( desktop_count <= 1 )); then
+        if (( desktop_count == 5 || desktop_count <= 1 )); then
             kwriteconfig6 \
                 --file "$macqueen_config" \
                 --group Desktops \
-                --key Number 5
+                --key Number 1
             kwriteconfig6 \
                 --file "$macqueen_config" \
                 --group Desktops \
@@ -52,6 +51,15 @@ if command -v kreadconfig6 >/dev/null && command -v kwriteconfig6 >/dev/null; th
         kwriteconfig6 \
             --file "$macqueen_config" \
             --group MacqueenDE \
-            --key WorkspaceDefaultsVersion 1
+            --key WorkspaceDefaultsVersion 2
     fi
+
+    shortcuts_file="$user_config_dir/kglobalshortcutsrc"
+    for desktop in {1..9}; do
+        kwriteconfig6 \
+            --file "$shortcuts_file" \
+            --group kwin \
+            --key "Switch to Desktop $desktop" \
+            "Meta+$desktop,Meta+$desktop,Переключиться на рабочий стол $desktop"
+    done
 fi

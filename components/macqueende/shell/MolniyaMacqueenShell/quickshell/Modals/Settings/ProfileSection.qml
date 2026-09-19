@@ -132,7 +132,7 @@ Rectangle {
             }
 
             StyledText {
-                text: "KaskadOS"
+                text: UserInfoService.hostname || "localhost"
                 font.pixelSize: Theme.fontSizeMedium
                 color: Theme.surfaceVariantText
                 elide: Text.ElideRight

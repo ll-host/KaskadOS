@@ -226,6 +226,7 @@ ViewManager::onInitComplete()
         m_steps.first()->onActivate();
     }
 
+    updateButtonLabels();
     emit currentStepChanged();
 }
 
@@ -418,6 +419,11 @@ ViewManager::updateButtonLabels()
     {
         UPDATE_BUTTON_PROPERTY( nextLabel, nextIsInstallationStep );
         UPDATE_BUTTON_PROPERTY( nextIcon, "run-install" );
+    }
+    else if ( m_currentStep == 0 )
+    {
+        UPDATE_BUTTON_PROPERTY( nextLabel, tr( "Продолжить", "@button" ) );
+        UPDATE_BUTTON_PROPERTY( nextIcon, "go-next" );
     }
     else
     {

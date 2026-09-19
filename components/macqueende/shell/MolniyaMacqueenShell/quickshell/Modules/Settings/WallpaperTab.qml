@@ -14,7 +14,6 @@ Item {
     LayoutMirroring.childrenInherit: true
 
     property var parentModal: null
-    property bool onlineGalleryOpen: false
     property string selectedMonitorName: {
         var screens = Quickshell.screens;
         return screens.length > 0 ? screens[0].name : "";
@@ -286,16 +285,6 @@ Item {
                                 }
                             }
 
-                            DankButton {
-                                text: I18n.tr("Online wallpapers")
-                                iconName: "travel_explore"
-                                iconSize: Theme.iconSizeSmall
-                                buttonHeight: 32
-                                horizontalPadding: Theme.spacingM
-                                backgroundColor: root.onlineGalleryOpen ? Theme.primary : Theme.surfaceContainerHigh
-                                textColor: root.onlineGalleryOpen ? Theme.onPrimary : Theme.surfaceText
-                                onClicked: root.onlineGalleryOpen = !root.onlineGalleryOpen
-                            }
                         }
                     }
                 }
@@ -1235,22 +1224,6 @@ Item {
                 }
             }
 
-            Loader {
-                id: onlineGalleryLoader
-                width: parent.width
-                height: item ? item.height : 0
-                active: root.onlineGalleryOpen
-                visible: active
-
-                sourceComponent: WallhavenBrowser {
-                    onCloseRequested: root.onlineGalleryOpen = false
-                    onApplyWallpaper: path => {
-                        root.applyOnlineWallpaper(path);
-                        root.onlineGalleryOpen = false;
-                    }
-                }
-            }
-
             SettingsCard {
                 tab: "wallpaper"
                 tags: ["external", "disable", "swww", "hyprpaper", "swaybg"]
@@ -1306,15 +1279,6 @@ Item {
         mainWallpaperBrowserLoader.active = true;
         if (mainWallpaperBrowserLoader.item)
             mainWallpaperBrowserLoader.item.open();
-    }
-
-    function applyOnlineWallpaper(path) {
-        if (!path)
-            return;
-        if (SessionData.perMonitorWallpaper)
-            SessionData.setMonitorWallpaper(selectedMonitorName, path);
-        else
-            SessionData.setWallpaper(path);
     }
 
     function openLightWallpaperBrowser() {

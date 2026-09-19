@@ -31,6 +31,7 @@ Item {
     id: root
     readonly property var log: Log.scoped("DMSShell")
     readonly property var _sessionsServiceRef: SessionsService
+    readonly property bool _dynamicWorkspaceServiceReady: DynamicWorkspaceService.ready
 
     property var core: null
 

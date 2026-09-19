@@ -36,7 +36,7 @@ DankModal {
     signal lockRequested
 
     function actionNeedsConfirm(action) {
-        return action !== "lock" && action !== "restart";
+        return action === "reboot" || action === "logout" || action === "poweroff" || action === "hibernate";
     }
 
     function actionWakesOnKeyRelease(action) {
@@ -171,8 +171,10 @@ DankModal {
     }
 
     function updateVisibleActions() {
-        const allActions = SettingsData.powerMenuActions || ["reboot", "logout", "poweroff", "lock", "suspend", "restart"];
+        const allActions = SettingsData.powerMenuActions || ["reboot", "logout", "poweroff", "lock", "suspend"];
         visibleActions = allActions.filter(action => {
+            if (action === "restart")
+                return false;
             if (action === "hibernate" && !SessionService.hibernateSupported)
                 return false;
             return true;

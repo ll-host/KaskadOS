@@ -12,7 +12,7 @@ DankModal {
     keepPopoutsOpen: true
 
     property int selectedIndex: 0
-    property var profileModel: PowerProfileWatcher.availableProfiles
+    property var profileModel: Array.from(new Set(PowerProfileWatcher.availableProfiles || []))
 
     function openCentered() {
         open();

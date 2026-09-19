@@ -28,6 +28,8 @@
 #include <QFile>
 #include <QAction>
 #include <QHash>
+#include <QJsonDocument>
+#include <QJsonParseError>
 #include <QKeySequence>
 #include <KGlobalAccel>
 #include <KConfigGroup>
@@ -161,7 +163,7 @@ MacqueenIpc::~MacqueenIpc()
 
 uint MacqueenIpc::protocolVersion() const
 {
-    return 11;
+    return 12;
 }
 
 QString MacqueenIpc::compositorVersion() const
@@ -329,6 +331,16 @@ bool MacqueenIpc::applyOutputConfiguration(const QVariantList &outputs)
     }
 
     return m_workspace->applyOutputConfiguration(configuration) == OutputConfigurationError::None;
+}
+
+bool MacqueenIpc::applyOutputConfigurationJson(const QString &outputsJson)
+{
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(outputsJson.toUtf8(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isArray()) {
+        return false;
+    }
+    return applyOutputConfiguration(document.toVariant().toList());
 }
 
 QString MacqueenIpc::outputAtCursor() const

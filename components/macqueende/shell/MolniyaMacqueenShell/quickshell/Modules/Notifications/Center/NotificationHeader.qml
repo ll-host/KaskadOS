@@ -199,7 +199,7 @@ Item {
             checkEnabled: false
             textSize: Theme.fontSizeSmall
             visible: SettingsData.notificationHistoryEnabled
-            model: [I18n.tr("Current", "notification center tab") + " (" + NotificationService.notifications.length + ")", I18n.tr("History", "notification center tab") + " (" + NotificationService.historyList.length + ")"]
+            model: ["Новые (" + NotificationService.notifications.length + ")", "Архив (" + NotificationService.historyList.length + ")"]
             onSelectionChanged: (index, selected) => {
                 if (selected)
                     root.currentTab = index;

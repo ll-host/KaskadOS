@@ -123,10 +123,13 @@ fi
 readonly CALAMARES_RUNNER="${PROFILE_DIR}/airootfs/usr/local/bin/kaskados-run-calamares"
 readonly CALAMARES_FINALIZER="${PROFILE_DIR}/airootfs/usr/local/libexec/kaskados-finalize-installation"
 readonly CALAMARES_TARGET_RECORDER="${PROFILE_DIR}/airootfs/usr/local/libexec/kaskados-record-install-target"
+readonly CALAMARES_USER_PREFERENCES="${PROFILE_DIR}/airootfs/usr/local/libexec/kaskados-apply-user-preferences"
 if grep -Eq 'exec .*calamares.*[[:space:]]-D[0-9]+' "${CALAMARES_RUNNER}"; then
   die 'Calamares запускается с диагностическим уровнем журналирования'
 fi
-bash -n "${CALAMARES_FINALIZER}" "${CALAMARES_TARGET_RECORDER}"
+bash -n "${CALAMARES_FINALIZER}" "${CALAMARES_TARGET_RECORDER}" "${CALAMARES_USER_PREFERENCES}"
+[[ -x "${CALAMARES_USER_PREFERENCES}" ]] \
+  || die 'скрипт переноса пользовательских настроек не является исполняемым'
 grep -Fq '"${finalizer}" || true' "${CALAMARES_RUNNER}" \
   || die 'после выхода Calamares не сохраняется окончательный журнал'
 grep -Fq 'Logger::setupLogfile();' "${PROJECT_DIR}/components/calamares/src/calamares/CalamaresApplication.cpp" \
@@ -160,6 +163,9 @@ grep -Fq 'shellprocess@installationlog' "${CALAMARES_SETTINGS}" \
 grep -Fq '/usr/local/libexec/kaskados-record-install-target ${ROOT} ${USER}' \
   "${PROJECT_DIR}/components/calamares/src/modules/shellprocess/installationlog.conf" \
   || die 'Calamares не передаёт раздел установщику журналов'
+grep -Fq '/usr/bin/bash /usr/local/libexec/kaskados-apply-user-preferences ${ROOT} ${USER}' \
+  "${PROJECT_DIR}/components/calamares/src/modules/shellprocess/userpreferences.conf" \
+  || die 'Calamares запускает перенос пользовательских настроек не через Bash'
 readonly PRESERVEFILES_CONFIG="${PROJECT_DIR}/components/calamares/src/modules/preservefiles/preservefiles.conf"
 grep -Fq 'dest: /var/log/Calamares.log' "${PRESERVEFILES_CONFIG}" \
   || die 'журнал Calamares не записывается в установленную систему'
@@ -339,10 +345,15 @@ grep -Fq 'lang = QStringLiteral( "us" );' "${KEYBOARD_DIR}/Config.cpp" \
 if grep -Eq 'groupSelector|Switch Keyboard:' "${KEYBOARD_DIR}/KeyboardPage.ui"; then
   die 'в интерфейсе Calamares осталась настройка переключения раскладок'
 fi
-if grep -Eq 'gs->insert\([[:space:]]*"keyboard(AdditionalLayout|AdditionalVariant|GroupSwitcher|VConsoleKeymap)"' \
-  "${KEYBOARD_DIR}/Config.cpp"; then
-  die 'Calamares передаёт дополнительную live-раскладку в установленную систему'
-fi
+grep -Fq 'gs->insert( "keyboardAdditionalLayout", m_additionalLayoutInfo.additionalLayout );' \
+  "${KEYBOARD_DIR}/Config.cpp" \
+  || die 'выбранная дополнительная раскладка не сохраняется для установленной системы'
+grep -Fq 'gs->insert( "keyboardGroupSwitcher", m_additionalLayoutInfo.groupSwitcher );' \
+  "${KEYBOARD_DIR}/Config.cpp" \
+  || die 'способ переключения раскладок не сохраняется для установленной системы'
+grep -Fq 'm_additionalLayoutInfo.additionalLayout, m_layout' \
+  "${KEYBOARD_DIR}/SetKeyboardLayoutJob.cpp" \
+  || die 'дополнительная раскладка не записывается в конфигурацию установленной системы'
 
 # shellcheck disable=SC1090
 declare -A file_permissions=()

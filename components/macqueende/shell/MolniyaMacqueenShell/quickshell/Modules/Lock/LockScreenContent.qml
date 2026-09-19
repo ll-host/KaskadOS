@@ -1052,16 +1052,6 @@ Item {
                             }
                         }
 
-                        onActiveFocusChanged: {
-                            if (!activeFocus && !demoMode && passwordField && !powerMenu.isVisible) {
-                                Qt.callLater(() => {
-                                    if (passwordField && passwordField.forceActiveFocus) {
-                                        passwordField.forceActiveFocus();
-                                    }
-                                });
-                            }
-                        }
-
                         onEnabledChanged: {
                             if (enabled && !demoMode && passwordField && !powerMenu.isVisible) {
                                 Qt.callLater(() => {

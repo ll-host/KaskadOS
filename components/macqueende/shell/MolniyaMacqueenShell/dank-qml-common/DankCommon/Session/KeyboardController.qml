@@ -16,8 +16,14 @@ Item {
 
     function show() {
         if (!isKeyboardActive && keyboard === null) {
-            keyboard = keyboardComponent.createObject(keyboard_controller.rootObject);
-            keyboard.target = keyboard_controller.target;
+            keyboard = keyboardComponent.createObject(keyboard_controller.rootObject, {
+                "target": keyboard_controller.target,
+                "z": 10000
+            });
+            if (keyboard === null) {
+                log.warn("Could not create the on-screen keyboard");
+                return;
+            }
             keyboard.dismissed.connect(hide);
             isKeyboardActive = true;
         } else
@@ -27,7 +33,12 @@ Item {
     function hide() {
         if (isKeyboardActive && keyboard !== null) {
             keyboard.destroy();
+            keyboard = null;
             isKeyboardActive = false;
+            Qt.callLater(() => {
+                if (keyboard_controller.target)
+                    keyboard_controller.target.forceActiveFocus();
+            });
         } else
             log.debug("The keyboard is already hidden");
     }

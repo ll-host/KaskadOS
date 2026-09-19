@@ -66,7 +66,7 @@ Rectangle {
         ActionButton {
             text: navigationBar.cleanLabel(ViewManager.backLabel)
             enabled: ViewManager.backEnabled
-            visible: ViewManager.backAndNextVisible
+            visible: ViewManager.backAndNextVisible && ViewManager.currentStepIndex > 0
             onClicked: ViewManager.back()
         }
 
@@ -75,6 +75,7 @@ Rectangle {
             highlighted: true
             enabled: ViewManager.nextEnabled
             visible: ViewManager.backAndNextVisible
+            Layout.preferredWidth: 216
             onClicked: ViewManager.next()
         }
 
