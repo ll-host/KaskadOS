@@ -97,6 +97,7 @@ newer_project_file() {
       scripts/build-dgop-package.sh \
       scripts/check-profile.sh \
       scripts/clean-work.sh \
+      scripts/pacman-fetch.sh \
       scripts/prepare-live-profile.sh \
       Makefile 2>/dev/null
   )
@@ -122,6 +123,11 @@ pause_menu() {
 confirm() {
   local prompt="$1"
   local answer
+
+  if [[ "${KASKADOS_ASSUME_YES:-0}" == 1 ]]; then
+    printf '%s [подтверждено в интерфейсе]\n' "${prompt}"
+    return 0
+  fi
 
   read -r -p "${prompt} [д/Н]: " answer || return 1
   case "${answer}" in
@@ -461,7 +467,12 @@ commit_and_push_all() {
   git -C "${PROJECT_DIR}" status --short
   printf '\nВетка:  %s\n' "${branch}"
   printf 'Remote: %s\n\n' "${remote_url}"
-  read -r -p 'Введите название коммита: ' commit_message || return 130
+  if [[ -n "${KASKADOS_COMMIT_MESSAGE:-}" ]]; then
+    commit_message="${KASKADOS_COMMIT_MESSAGE}"
+    printf 'Название коммита: %s\n' "${commit_message}"
+  else
+    read -r -p 'Введите название коммита: ' commit_message || return 130
+  fi
   if [[ -z "${commit_message//[[:space:]]/}" ]]; then
     printf 'Коммит отменён: название не может быть пустым.\n'
     return 130
@@ -652,7 +663,25 @@ done
 
 [[ -d "${RELEASES_DIR}" ]] || die "не найден каталог ${RELEASES_DIR}"
 
-while true; do
+run_action() {
+  case "$1" in
+    build-iso) build_iso ;;
+    build-desktop) build_desktop ;;
+    publish-desktop) publish_desktop ;;
+    build-publish-desktop) build_and_publish_desktop ;;
+    status) show_status ;;
+    publish-iso) publish_iso_sourceforge ;;
+    bump-version) bump_version ;;
+    commit-push) commit_and_push_all ;;
+    logs) show_logs ;;
+    clear-logs) clear_logs ;;
+    *) die "неизвестное действие: $1" ;;
+  esac
+}
+
+run_tui() {
+  local choice
+  while true; do
   draw_menu
   read -r -p 'Выберите действие: ' choice || {
     printf '\n'
@@ -708,4 +737,32 @@ while true; do
       pause_menu
       ;;
   esac
-done
+  done
+}
+
+if (( $# > 0 )); then
+  case "$1" in
+    --action)
+      (( $# == 2 )) || die 'использование: --action НАЗВАНИЕ'
+      run_action "$2"
+      exit $?
+      ;;
+    --tui)
+      run_tui
+      exit 0
+      ;;
+    --help|-h)
+      printf 'Использование: %s [--tui | --action НАЗВАНИЕ]\n' "$0"
+      exit 0
+      ;;
+    *)
+      die "неизвестный параметр: $1"
+      ;;
+  esac
+fi
+
+if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" && "${KASKADOS_MANAGER_TUI:-0}" != 1 ]]; then
+  exec "${PROJECT_DIR}/scripts/run-manager-gui.sh"
+fi
+
+run_tui

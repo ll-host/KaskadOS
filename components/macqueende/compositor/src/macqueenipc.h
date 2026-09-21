@@ -59,6 +59,8 @@ public Q_SLOTS:
     void requestOverview(const QString &reason = QStringLiteral("ipc"));
     QString screenshotShortcut() const;
     bool setScreenshotShortcut(const QString &shortcut);
+    QString microphoneShortcut() const;
+    bool setMicrophoneShortcut(const QString &shortcut);
     void setShortcutCaptureActive(bool active);
     QStringList pressedShortcutModifiers() const;
     QVariantMap screenshotShortcutDebug() const;
@@ -81,6 +83,8 @@ Q_SIGNALS:
     void overviewRequested(const QString &reason);
     void screenshotRequested();
     void screenshotShortcutChanged(const QString &shortcut);
+    void microphoneShortcutChanged(const QString &shortcut);
+    void microphoneShortcutKeyChanged(bool pressed);
     void shortcutCaptured(const QString &shortcut);
 
 private:
@@ -98,6 +102,8 @@ private:
     quint32 m_lastRawKeyCode = 0;
     KeyboardKeyState m_lastRawKeyState = KeyboardKeyState::Released;
     quint64 m_screenshotShortcutTriggerCount = 0;
+    QString m_microphoneShortcut;
+    quint32 m_microphonePressedKey = 0;
     const QString m_serviceName = QStringLiteral("org.macqueen.Compositor1");
 };
 

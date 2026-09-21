@@ -1,7 +1,7 @@
 CALAMARES_BUILD_DIR ?= $(CURDIR)/build/calamares
 CALAMARES_JOBS ?= 8
 
-.PHONY: check iso clean live-profile calamares-configure calamares-build calamares-run
+.PHONY: check iso clean live-profile manager manager-run calamares-configure calamares-build calamares-run
 
 check:
 	./scripts/check-profile.sh
@@ -14,6 +14,13 @@ live-profile: check
 
 clean:
 	./scripts/clean-work.sh
+
+manager:
+	cmake -S tools/kaskados-manager -B build/kaskados-manager -G Ninja
+	cmake --build build/kaskados-manager
+
+manager-run: manager
+	./build/kaskados-manager/kaskados-manager --project "$(CURDIR)"
 
 calamares-configure:
 	cmake -S components/calamares -B "$(CALAMARES_BUILD_DIR)" -G Ninja \

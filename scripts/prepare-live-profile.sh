@@ -23,8 +23,9 @@ readonly INSTALLER_THEMES="${PROJECT_DIR}/components/installer-themes"
 readonly KEYRING_PACKAGE_SOURCE="${PROJECT_DIR}/repository/packages/kaskados-keyring"
 readonly DESKTOP_PACKAGE_SOURCE="${PROJECT_DIR}/repository/packages/kaskados-desktop"
 readonly DGOP_BUILD_SCRIPT="${SCRIPT_DIR}/build-dgop-package.sh"
+readonly PACMAN_FETCH_SCRIPT="${SCRIPT_DIR}/pacman-fetch.sh"
 readonly BOOTSTRAP_REPOSITORY="${BUILD_ROOT}/repository-bootstrap/x86_64"
-readonly BOOTSTRAP_PACKAGE_CACHE="${BUILD_ROOT}/repository-bootstrap/cache"
+readonly BOOTSTRAP_PACKAGE_CACHE="${BUILD_ROOT}/package-cache"
 readonly SOURCE_CACHE="${BUILD_ROOT}/source-cache"
 readonly NVIDIA_580XX_SOURCE="${BUILD_ROOT}/repository-bootstrap/nvidia-580xx-utils"
 readonly NVIDIA_580XX_32_SOURCE="${BUILD_ROOT}/repository-bootstrap/lib32-nvidia-580xx-utils"
@@ -97,6 +98,7 @@ fi
 [[ -f "${DESKTOP_PACKAGE_SOURCE}/PKGBUILD" ]] \
   || die 'не найден пакет kaskados-desktop'
 [[ -x "${DGOP_BUILD_SCRIPT}" ]] || die 'не найден скрипт сборки dgop'
+[[ -x "${PACMAN_FETCH_SCRIPT}" ]] || die 'не найден устойчивый загрузчик пакетов'
 
 "${SCRIPT_DIR}/check-profile.sh"
 
@@ -112,6 +114,15 @@ install -d -m 0755 \
   "${BOOTSTRAP_PACKAGE_CACHE}" \
   "${SOURCE_CACHE}" \
   "${BUILD_ROOT}/repository-bootstrap/work"
+# Official Arch packages are expensive to download again after an unrelated
+# build failure. Keep that cache, but discard locally rebuilt packages whose
+# filenames can stay the same while their contents change.
+find "${BOOTSTRAP_PACKAGE_CACHE}" -maxdepth 1 -type f \
+  \( -name 'kaskados-keyring-*' \
+     -o -name 'dgop-*' \
+     -o -name 'nvidia-580xx-*' \
+     -o -name 'lib32-nvidia-580xx-*' \) \
+  -delete
 (
   cd -- "${KEYRING_PACKAGE_SOURCE}"
   env \
@@ -144,10 +155,25 @@ fetch_aur_snapshot() {
   local repository_url=$1
   local commit=$2
   local destination=$3
+  local attempt
 
   git init -q "${destination}"
   git -C "${destination}" remote add origin "${repository_url}"
-  git -C "${destination}" fetch -q --depth 1 origin "${commit}"
+  for attempt in {1..8}; do
+    if git \
+      -c http.version=HTTP/1.1 \
+      -c http.lowSpeedLimit=1024 \
+      -c http.lowSpeedTime=60 \
+      -C "${destination}" \
+      fetch -q --no-tags --depth 1 origin "${commit}"; then
+      break
+    fi
+    if (( attempt == 8 )); then
+      die "не удалось загрузить AUR-снимок ${repository_url} после ${attempt} попыток"
+    fi
+    printf 'Сетевая ошибка AUR, повтор %d/8...\n' "$((attempt + 1))" >&2
+    sleep "$((attempt * 2))"
+  done
   git -C "${destination}" checkout -q --detach FETCH_HEAD
   [[ "$(git -C "${destination}" rev-parse HEAD)" == "${commit}" ]] \
     || die "не удалось зафиксировать AUR-снимок ${repository_url}"
@@ -304,16 +330,15 @@ fi
 mkdir -p -- "${PROFILE_DIR}"
 cp -a -- "${SOURCE_PROFILE}/." "${PROFILE_DIR}/"
 
-# Для сборки ISO не используем случайный порядок зеркал хост-системы: одно
-# зависшее зеркало иначе останавливает всю установку пакетов в airootfs.
-# Эти серверы относятся только к временному профилю сборки. В установленную
-# систему по-прежнему попадает исходный pacman.conf с обычным mirrorlist.
+# Для сборки ISO используем официальные CDN Arch и внешний curl с HTTP/1.1,
+# продолжением загрузки и повторами. Это защищает pacstrap от рассинхронных
+# зеркал и случайных HTTP/2/TLS-обрывов. В установленную систему по-прежнему
+# попадает исходный pacman.conf с обычным mirrorlist.
 sed -i \
-  '/^Include = \/etc\/pacman.d\/mirrorlist$/c\Server = https://de.arch.mirror.kescher.at/$repo/os/$arch\
-Server = https://ftp.halifax.rwth-aachen.de/archlinux/$repo/os/$arch\
-Server = https://mirror.yandex.ru/archlinux/$repo/os/$arch' \
+  '/^Include = \/etc\/pacman.d\/mirrorlist$/c\Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\
+Server = https://fastly.mirror.pkgbuild.com/$repo/os/$arch' \
   "${PROFILE_DIR}/pacman.conf"
-grep -Fqx 'Server = https://de.arch.mirror.kescher.at/$repo/os/$arch' \
+grep -Fqx 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' \
   "${PROFILE_DIR}/pacman.conf" \
   || die 'не удалось настроить основное зеркало Arch для сборки ISO'
 if grep -Fqx 'Include = /etc/pacman.d/mirrorlist' "${PROFILE_DIR}/pacman.conf"; then
@@ -322,9 +347,13 @@ fi
 sed -i \
   -e 's/^ParallelDownloads = .*/ParallelDownloads = 3/' \
   -e '/^ParallelDownloads = 3$/a DisableDownloadTimeout' \
+  -e "/^#XferCommand = \/usr\/bin\/curl/a XferCommand = ${PACMAN_FETCH_SCRIPT} %o %u" \
   "${PROFILE_DIR}/pacman.conf"
 grep -Fqx 'DisableDownloadTimeout' "${PROFILE_DIR}/pacman.conf" \
   || die 'не удалось отключить тайм-аут медленной загрузки для сборки ISO'
+grep -Fqx "XferCommand = ${PACMAN_FETCH_SCRIPT} %o %u" \
+  "${PROFILE_DIR}/pacman.conf" \
+  || die 'не удалось настроить устойчивую загрузку пакетов для сборки ISO'
 
 # Временные пакеты bootstrap-репозитория пересобираются под теми же версиями.
 # Отдельный свежий кэш не позволяет pacman взять одноимённый пакет от прошлой сборки.

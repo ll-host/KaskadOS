@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=KaskadOS Build Manager
+Name[ru]=Управление сборками KaskadOS
+Comment=Build, publish and inspect KaskadOS releases
+Comment[ru]=Сборка, публикация и состояние выпусков KaskadOS
+Exec=/home/ll/KaskadOS/kaskados-manager.sh
+Icon=applications-development
+Terminal=false
+Categories=Development;
+StartupNotify=true

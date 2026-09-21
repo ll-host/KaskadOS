@@ -6,6 +6,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import Macqueen.Ipc
 import qs.Common
 import qs.Services
 
@@ -15,6 +16,106 @@ Singleton {
 
     readonly property PwNode sink: Pipewire.defaultAudioSink
     readonly property PwNode source: Pipewire.defaultAudioSource
+    property bool microphoneShortcutOff: false
+    property bool microphoneShortcutHeld: false
+    property var microphoneShortcutNode: null
+    property real microphoneShortcutSavedVolume: 1.0
+    property bool microphoneShortcutSavedMuted: false
+
+    function rememberMicrophoneShortcutState() {
+        if (!source?.audio)
+            return;
+        microphoneShortcutNode = source;
+        microphoneShortcutSavedVolume = source.audio.volume;
+        microphoneShortcutSavedMuted = source.audio.muted;
+    }
+
+    function setMicrophoneShortcutOff(off) {
+        if (!source?.audio)
+            return;
+        if (off) {
+            if (!microphoneShortcutOff || microphoneShortcutNode !== source)
+                rememberMicrophoneShortcutState();
+            microphoneShortcutOff = true;
+            source.audio.muted = true;
+        } else {
+            if (!microphoneShortcutOff)
+                return;
+            microphoneShortcutOff = false;
+            if (microphoneShortcutNode === source) {
+                source.audio.volume = microphoneShortcutSavedVolume;
+                source.audio.muted = SessionData.microphoneShortcutMode === "holdToTalk" ? false : microphoneShortcutSavedMuted;
+            }
+        }
+        micVolumeChanged();
+        micMuteChanged();
+    }
+
+    function resetMicrophoneShortcutMode() {
+        if (microphoneShortcutOff && source?.audio && microphoneShortcutNode === source) {
+            source.audio.volume = microphoneShortcutSavedVolume;
+            source.audio.muted = microphoneShortcutSavedMuted;
+        }
+        microphoneShortcutOff = false;
+        microphoneShortcutHeld = false;
+        microphoneShortcutNode = null;
+        if (SessionData.microphoneShortcutMode === "holdToTalk")
+            setMicrophoneShortcutOff(true);
+    }
+
+    onSourceChanged: {
+        const wasOff = microphoneShortcutOff;
+        if (wasOff && microphoneShortcutNode && microphoneShortcutNode !== source) {
+            try {
+                if (microphoneShortcutNode.audio) {
+                    microphoneShortcutNode.audio.volume = microphoneShortcutSavedVolume;
+                    microphoneShortcutNode.audio.muted = microphoneShortcutSavedMuted;
+                }
+            } catch (error) {
+                // The previous device may already have disappeared.
+            }
+        }
+        microphoneShortcutNode = null;
+        microphoneShortcutOff = false;
+        if (wasOff || (SessionData.microphoneShortcutMode === "holdToTalk" && !microphoneShortcutHeld)
+            || (SessionData.microphoneShortcutMode === "holdToMute" && microphoneShortcutHeld))
+            setMicrophoneShortcutOff(true);
+    }
+
+    Connections {
+        target: SessionData
+        function onMicrophoneShortcutModeChanged() { root.resetMicrophoneShortcutMode(); }
+    }
+
+    Connections {
+        target: Macqueen
+        function onMicrophoneShortcutKeyChanged(pressed) {
+            const mode = SessionData.microphoneShortcutMode;
+            if (pressed) {
+                if (mode === "toggle") {
+                    if (!root.microphoneShortcutOff && root.source?.audio?.muted) {
+                        root.rememberMicrophoneShortcutState();
+                        root.microphoneShortcutSavedMuted = false;
+                        root.microphoneShortcutOff = true;
+                    }
+                    root.setMicrophoneShortcutOff(!root.microphoneShortcutOff);
+                } else if (mode === "holdToTalk") {
+                    root.microphoneShortcutHeld = true;
+                    root.setMicrophoneShortcutOff(false);
+                } else if (mode === "holdToMute") {
+                    root.microphoneShortcutHeld = true;
+                    root.setMicrophoneShortcutOff(true);
+                }
+            } else {
+                root.microphoneShortcutHeld = false;
+                if (mode === "holdToTalk")
+                    root.setMicrophoneShortcutOff(true);
+                else if (mode === "holdToMute")
+                    root.setMicrophoneShortcutOff(false);
+            }
+        }
+    }
+
 
     readonly property bool soundsAvailable: MultimediaService.available
     property bool gsettingsAvailable: false
@@ -1066,6 +1167,7 @@ EOFCONFIG
     }
 
     Component.onCompleted: {
+        resetMicrophoneShortcutMode();
         rebuildTypedNodeLists();
 
         if (soundsAvailable)

@@ -5,6 +5,7 @@ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly WORK_DIR="${WORK_DIR:-${PROJECT_DIR}/work}"
 readonly RESOLVED_WORK_DIR="$(realpath -m -- "${WORK_DIR}")"
+readonly PRIVILEGE_HELPER="${KASKADOS_PRIVILEGE_HELPER:-sudo}"
 
 die() {
   printf 'Ошибка: %s\n' "$*" >&2
@@ -28,7 +29,12 @@ fi
 
 if (( EUID == 0 )); then
   rm -rf -- "${RESOLVED_WORK_DIR}"
+elif [[ "${PRIVILEGE_HELPER}" == pkexec ]]; then
+  command -v pkexec >/dev/null 2>&1 || die 'не найдена команда pkexec'
+  pkexec /usr/bin/rm -rf -- "${RESOLVED_WORK_DIR}"
 else
+  [[ "${PRIVILEGE_HELPER}" == sudo ]] \
+    || die "неподдерживаемый помощник прав: ${PRIVILEGE_HELPER}"
   command -v sudo >/dev/null 2>&1 || die 'не найдена команда sudo'
   sudo -v
   sudo rm -rf -- "${RESOLVED_WORK_DIR}"

@@ -166,6 +166,10 @@ grep -Fq '/usr/local/libexec/kaskados-record-install-target ${ROOT} ${USER}' \
 grep -Fq '/usr/bin/bash /usr/local/libexec/kaskados-apply-user-preferences ${ROOT} ${USER}' \
   "${PROJECT_DIR}/components/calamares/src/modules/shellprocess/userpreferences.conf" \
   || die 'Calamares запускает перенос пользовательских настроек не через Bash'
+grep -Fq '"$target_home/.local"' "${CALAMARES_USER_PREFERENCES}" \
+  || die 'перенос пользовательских настроек не исправляет владельца ~/.local'
+grep -Fq '"$target_home/.config"' "${CALAMARES_USER_PREFERENCES}" \
+  || die 'перенос пользовательских настроек не исправляет владельца ~/.config'
 readonly PRESERVEFILES_CONFIG="${PROJECT_DIR}/components/calamares/src/modules/preservefiles/preservefiles.conf"
 grep -Fq 'dest: /var/log/Calamares.log' "${PRESERVEFILES_CONFIG}" \
   || die 'журнал Calamares не записывается в установленную систему'
@@ -221,6 +225,13 @@ grep -Fq 'desktopFile: "macqueende"' "${DISPLAYMANAGER_CONFIG}" \
   || die 'Calamares не выбирает сеанс MacqueenDE по умолчанию'
 
 readonly PREPARE_PROFILE="${SCRIPT_DIR}/prepare-live-profile.sh"
+readonly PACMAN_FETCH="${SCRIPT_DIR}/pacman-fetch.sh"
+[[ -x "${PACMAN_FETCH}" ]] \
+  || die 'не найден исполняемый устойчивый загрузчик пакетов pacman-fetch.sh'
+grep -Fq 'case ${status} in' "${PACMAN_FETCH}" \
+  || die 'pacman-fetch.sh не различает постоянные и временные ошибки загрузки'
+grep -Fq '22|37)' "${PACMAN_FETCH}" \
+  || die 'pacman-fetch.sh повторяет отсутствующие файлы и подписи'
 grep -Fq -- '--target macqueen screenshot screencast nightlight' "${PREPARE_PROFILE}" \
   || die 'prepare-live-profile.sh не собирает обязательные цели Macqueen'
 grep -Fq 'readonly MACQUEEN_STAGE="${PROFILE_DIR}/airootfs/opt/macqueende"' "${PREPARE_PROFILE}" \
@@ -233,6 +244,12 @@ grep -Fq 'source: "DMSShell.qml"' "${MOLNIYA_SHELL}" \
 grep -Fq 'org.freedesktop.impl.portal.desktop.macqueen' \
   "${MACQUEENDE_DIR}/session/run-molniya" \
   || die 'сеанс MacqueenDE не проверяет собственный portal'
+readonly USER_INFO_SERVICE="${MACQUEENDE_DIR}/shell/MolniyaMacqueenShell/quickshell/Services/UserInfoService.qml"
+grep -Fq 'hostnamectl --static' "${USER_INFO_SERVICE}" \
+  || die 'карточка пользователя не читает имя компьютера из systemd-hostnamed'
+if grep -Fq '$(hostname)' "${USER_INFO_SERVICE}"; then
+  die 'карточка пользователя зависит от отсутствующей команды hostname'
+fi
 if grep -Fq '"$portal" --replace' "${MACQUEENDE_DIR}/session/run-molniya"; then
   die 'сеанс MacqueenDE вручную подменяет KDE portal'
 fi

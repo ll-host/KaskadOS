@@ -129,6 +129,10 @@ MacqueenIpcClient::MacqueenIpcClient(QObject *parent)
     bus.connect(QString::fromLatin1(Service), QString::fromLatin1(Path), QString::fromLatin1(Interface),
                 QStringLiteral("screenshotShortcutChanged"), this, SLOT(handleScreenshotShortcutChanged(QString)));
     bus.connect(QString::fromLatin1(Service), QString::fromLatin1(Path), QString::fromLatin1(Interface),
+                QStringLiteral("microphoneShortcutChanged"), this, SLOT(handleMicrophoneShortcutChanged(QString)));
+    bus.connect(QString::fromLatin1(Service), QString::fromLatin1(Path), QString::fromLatin1(Interface),
+                QStringLiteral("microphoneShortcutKeyChanged"), this, SIGNAL(microphoneShortcutKeyChanged(bool)));
+    bus.connect(QString::fromLatin1(Service), QString::fromLatin1(Path), QString::fromLatin1(Interface),
                 QStringLiteral("shortcutCaptured"), this, SIGNAL(shortcutCaptured(QString)));
     bus.interface()->registerService(QStringLiteral("org.macqueen.MolniyaShell1"),
                                      QDBusConnectionInterface::DontQueueService,
@@ -206,6 +210,11 @@ QString MacqueenIpcClient::screenshotShortcut() const
     return m_screenshotShortcut;
 }
 
+QString MacqueenIpcClient::microphoneShortcut() const
+{
+    return m_microphoneShortcut;
+}
+
 void MacqueenIpcClient::refresh()
 {
     if (!m_available) {
@@ -227,6 +236,8 @@ void MacqueenIpcClient::refresh()
     } else {
         handleScreenshotShortcutChanged({});
     }
+    handleMicrophoneShortcutChanged(m_protocolVersion >= 13
+        ? call(QStringLiteral("microphoneShortcut")).toString() : QString());
 }
 
 bool MacqueenIpcClient::activateWorkspace(const QString &id)
@@ -372,6 +383,18 @@ bool MacqueenIpcClient::setScreenshotShortcut(const QString &shortcut)
     return changed;
 }
 
+bool MacqueenIpcClient::setMicrophoneShortcut(const QString &shortcut)
+{
+    if (!m_available || m_protocolVersion < 13) {
+        return false;
+    }
+    const bool changed = call(QStringLiteral("setMicrophoneShortcut"), {shortcut}).toBool();
+    if (changed) {
+        handleMicrophoneShortcutChanged(call(QStringLiteral("microphoneShortcut")).toString());
+    }
+    return changed;
+}
+
 void MacqueenIpcClient::setShortcutCaptureActive(bool active)
 {
     if (m_protocolVersion >= 5) {
@@ -465,6 +488,15 @@ void MacqueenIpcClient::handleScreenshotShortcutChanged(const QString &shortcut)
     Q_EMIT screenshotShortcutChanged();
 }
 
+void MacqueenIpcClient::handleMicrophoneShortcutChanged(const QString &shortcut)
+{
+    if (m_microphoneShortcut == shortcut) {
+        return;
+    }
+    m_microphoneShortcut = shortcut;
+    Q_EMIT microphoneShortcutChanged();
+}
+
 void MacqueenIpcClient::refreshOutputs()
 {
     const QVariantList value = mapList(call(QStringLiteral("outputs")));
@@ -556,6 +588,7 @@ void MacqueenIpcClient::clear()
     m_currentKeyboardLayout = 0;
     m_keyboardLayoutShortcut.clear();
     m_screenshotShortcut.clear();
+    m_microphoneShortcut.clear();
 
     if (wasAvailable) {
         Q_EMIT availableChanged();
@@ -569,4 +602,5 @@ void MacqueenIpcClient::clear()
     Q_EMIT availableKeyboardLayoutsChanged();
     Q_EMIT keyboardLayoutShortcutChanged();
     Q_EMIT screenshotShortcutChanged();
+    Q_EMIT microphoneShortcutChanged();
 }

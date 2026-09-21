@@ -29,6 +29,7 @@ class MacqueenIpcClient : public QObject
     Q_PROPERTY(uint currentKeyboardLayout READ currentKeyboardLayout NOTIFY keyboardLayoutsChanged)
     Q_PROPERTY(QString keyboardLayoutShortcut READ keyboardLayoutShortcut NOTIFY keyboardLayoutShortcutChanged)
     Q_PROPERTY(QString screenshotShortcut READ screenshotShortcut NOTIFY screenshotShortcutChanged)
+    Q_PROPERTY(QString microphoneShortcut READ microphoneShortcut NOTIFY microphoneShortcutChanged)
 
 public:
     explicit MacqueenIpcClient(QObject *parent = nullptr);
@@ -45,6 +46,7 @@ public:
     uint currentKeyboardLayout() const;
     QString keyboardLayoutShortcut() const;
     QString screenshotShortcut() const;
+    QString microphoneShortcut() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE bool activateWorkspace(const QString &id);
@@ -65,6 +67,7 @@ public:
     Q_INVOKABLE bool submitScreenCastSelection(const QString &requestId, const QString &kind, const QString &id, bool allowRestore = true);
     Q_INVOKABLE bool cancelScreenCastSelection(const QString &requestId);
     Q_INVOKABLE bool setScreenshotShortcut(const QString &shortcut);
+    Q_INVOKABLE bool setMicrophoneShortcut(const QString &shortcut);
     Q_INVOKABLE void setShortcutCaptureActive(bool active);
     Q_INVOKABLE QStringList pressedShortcutModifiers() const;
     Q_INVOKABLE void requestScreenshot();
@@ -83,6 +86,8 @@ Q_SIGNALS:
     void screenCastSelectionRequested(const QString &requestId, const QString &title, const QString &optionsJson);
     void screenshotRequested();
     void screenshotShortcutChanged();
+    void microphoneShortcutChanged();
+    void microphoneShortcutKeyChanged(bool pressed);
     void shortcutCaptured(const QString &shortcut);
 
 private Q_SLOTS:
@@ -99,6 +104,7 @@ private Q_SLOTS:
     void handleScreenCastSelectionRequested(const QString &requestId, const QString &title, const QString &optionsJson);
     void handleKeyboardLayoutShortcutChanged(const QString &shortcut);
     void handleScreenshotShortcutChanged(const QString &shortcut);
+    void handleMicrophoneShortcutChanged(const QString &shortcut);
 
 private:
     QVariant call(const QString &method, const QVariantList &arguments = {}) const;
@@ -124,4 +130,5 @@ private:
     uint m_currentKeyboardLayout = 0;
     QString m_keyboardLayoutShortcut;
     QString m_screenshotShortcut;
+    QString m_microphoneShortcut;
 };

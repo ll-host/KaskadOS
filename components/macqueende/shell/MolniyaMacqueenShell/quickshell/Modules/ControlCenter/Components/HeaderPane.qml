@@ -61,7 +61,7 @@ Rectangle {
 
             Typography {
                 width: parent.width
-                text: UserInfoService.hostname || "localhost"
+                text: UserInfoService.hostname || "—"
                 style: Typography.Style.Caption
                 color: Theme.surfaceVariantText
                 elide: Text.ElideRight

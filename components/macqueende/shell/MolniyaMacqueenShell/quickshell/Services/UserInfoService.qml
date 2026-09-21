@@ -15,7 +15,14 @@ Singleton {
     property bool profileAvailable: false
 
     function getUserInfo() {
-        Proc.runCommand("userInfo", ["sh", "-c", "echo \"$USER|$(getent passwd $USER | cut -d: -f5 | cut -d, -f1)|$(hostname)\""], (output, exitCode) => {
+        const command = [
+            "sh", "-c",
+            "user=${USER:-$(id -un)}; "
+            + "full=$(getent passwd \"$user\" | cut -d: -f5 | cut -d, -f1); "
+            + "host=$(hostnamectl --static 2>/dev/null || sed -n '1p' /etc/hostname 2>/dev/null); "
+            + "printf '%s|%s|%s\\n' \"$user\" \"$full\" \"$host\""
+        ];
+        Proc.runCommand("userInfo", command, (output, exitCode) => {
             if (exitCode !== 0) {
                 root.username = "User";
                 root.fullName = "User";

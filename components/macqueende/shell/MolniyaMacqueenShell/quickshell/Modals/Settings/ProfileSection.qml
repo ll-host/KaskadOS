@@ -132,7 +132,7 @@ Rectangle {
             }
 
             StyledText {
-                text: UserInfoService.hostname || "localhost"
+                text: UserInfoService.hostname || "—"
                 font.pixelSize: Theme.fontSizeMedium
                 color: Theme.surfaceVariantText
                 elide: Text.ElideRight

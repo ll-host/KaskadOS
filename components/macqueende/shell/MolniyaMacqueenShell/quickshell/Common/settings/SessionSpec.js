@@ -81,6 +81,7 @@ var SPEC = {
     deviceMaxVolumes: { def: {} },
     hiddenOutputDeviceNames: { def: [] },
     hiddenInputDeviceNames: { def: [] },
+    microphoneShortcutMode: { def: "toggle" },
 
     locale: { def: "", onChange: "updateLocale" },
     timeLocale: { def: "" },

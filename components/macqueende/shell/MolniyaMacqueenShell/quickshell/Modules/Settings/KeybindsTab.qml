@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
+import Macqueen.Ipc
 import qs.Common
 import qs.Modals.Common
 import qs.Services
@@ -26,6 +27,27 @@ Item {
     property real _savedScrollY: 0
     property bool _preserveScroll: false
     property string _editingKey: ""
+    property bool microphoneShortcutRecording: false
+
+    function stopMicrophoneShortcutRecording() {
+        if (!microphoneShortcutRecording)
+            return;
+        microphoneShortcutRecording = false;
+        Macqueen.setShortcutCaptureActive(false);
+    }
+
+    Component.onDestruction: stopMicrophoneShortcutRecording()
+
+    Connections {
+        target: Macqueen
+        function onShortcutCaptured(shortcut) {
+            if (!keybindsTab.microphoneShortcutRecording)
+                return;
+            keybindsTab.stopMicrophoneShortcutRecording();
+            if (!Macqueen.setMicrophoneShortcut(shortcut))
+                ToastService.showError("Не удалось назначить клавишу микрофона", shortcut);
+        }
+    }
 
     function _updateFiltered() {
         const allBinds = KeybindsService.getFlatBinds();
@@ -232,8 +254,10 @@ Item {
     onRequestedSearchQueryChanged: Qt.callLater(_applyRequestedSearch)
 
     onVisibleChanged: {
-        if (!visible)
+        if (!visible) {
+            stopMicrophoneShortcutRecording();
             return;
+        }
         _ensureCurrentProvider();
         Qt.callLater(() => {
             _applyRequestedSearch();
@@ -333,6 +357,120 @@ Item {
                             enabled: !keybindsTab.showingNewBind && !KeybindsService.readOnly
                             opacity: enabled ? 1 : 0.5
                             onClicked: keybindsTab.startNewBind()
+                        }
+                    }
+                }
+            }
+
+            StyledRect {
+                width: Math.min(650, parent.width - Theme.spacingL * 2)
+                height: microphoneShortcutSection.implicitHeight + Theme.spacingL * 2
+                anchors.horizontalCenter: parent.horizontalCenter
+                radius: Theme.cornerRadius
+                color: Theme.surfaceContainerHigh
+                border.width: 0
+                visible: Macqueen.available && Macqueen.protocolVersion >= 13
+
+                Column {
+                    id: microphoneShortcutSection
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingL
+                    spacing: Theme.spacingM
+
+                    StyledText {
+                        text: "Микрофон"
+                        font.pixelSize: Theme.fontSizeLarge
+                        font.weight: Font.Medium
+                        color: Theme.surfaceText
+                    }
+
+                    StyledText {
+                        width: parent.width
+                        text: "По умолчанию — V. Она срабатывает и при обычном наборе текста; здесь можно записать сочетание клавиш."
+                        color: Theme.surfaceVariantText
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Row {
+                        spacing: Theme.spacingM
+
+                        FocusScope {
+                            id: microphoneShortcutField
+                            width: 170
+                            height: 40
+                            activeFocusOnTab: true
+                            Keys.onPressed: event => {
+                                if (event.key === Qt.Key_Escape) {
+                                    keybindsTab.stopMicrophoneShortcutRecording();
+                                    event.accepted = true;
+                                }
+                            }
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: Theme.cornerRadius
+                                color: keybindsTab.microphoneShortcutRecording ? Theme.primaryContainer : Theme.surfaceContainerHighest
+                                border.width: 1
+                                border.color: keybindsTab.microphoneShortcutRecording ? Theme.primary : Theme.outlineVariant
+                            }
+                            StyledText {
+                                anchors.centerIn: parent
+                                text: keybindsTab.microphoneShortcutRecording ? "Нажмите сочетание…" : (Macqueen.microphoneShortcut || "V")
+                                color: Theme.surfaceText
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (keybindsTab.microphoneShortcutRecording)
+                                        keybindsTab.stopMicrophoneShortcutRecording();
+                                    else {
+                                        keybindsTab.microphoneShortcutRecording = true;
+                                        microphoneShortcutField.forceActiveFocus();
+                                        Macqueen.setShortcutCaptureActive(true);
+                                    }
+                                }
+                            }
+                        }
+
+                        DankButton {
+                            text: "Сбросить на V"
+                            buttonHeight: 40
+                            backgroundColor: "transparent"
+                            textColor: Theme.surfaceVariantText
+                            onClicked: {
+                                keybindsTab.stopMicrophoneShortcutRecording();
+                                Macqueen.setMicrophoneShortcut("V");
+                            }
+                        }
+                    }
+
+                    Repeater {
+                        model: [
+                            { value: "toggle", label: "Переключение", detail: "Нажать — выключить; нажать снова — вернуть прежнюю громкость" },
+                            { value: "holdToTalk", label: "Включён, пока удерживаю", detail: "Без нажатия микрофон выключен" },
+                            { value: "holdToMute", label: "Выключен, пока удерживаю", detail: "После отпускания прежняя громкость вернётся" }
+                        ]
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: microphoneShortcutSection.width
+                            height: modeText.implicitHeight + Theme.spacingM * 2
+                            radius: Theme.cornerRadius
+                            color: SessionData.microphoneShortcutMode === modelData.value ? Theme.primaryContainer : Theme.surfaceContainerHighest
+
+                            Column {
+                                id: modeText
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.margins: Theme.spacingM
+                                StyledText { text: modelData.label; color: Theme.surfaceText; font.weight: Font.Medium }
+                                StyledText { text: modelData.detail; color: Theme.surfaceVariantText; wrapMode: Text.WordWrap; width: parent.width }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: SessionData.set("microphoneShortcutMode", modelData.value)
+                            }
                         }
                     }
                 }
