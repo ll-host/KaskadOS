@@ -391,7 +391,7 @@ func buildOnce(opts *Options) (bool, error) {
 	}
 
 	if isDMSKDEColorSchemeActive(opts.ConfigDir) {
-		applyKDEColorScheme(opts.Mode)
+		applyKDEColorScheme(opts.ConfigDir, opts.Mode)
 	}
 
 	if !opts.ShouldSkipTemplate("qt6ct") && appExists(opts.AppChecker, []string{"qt6ct"}, nil) {
@@ -952,8 +952,9 @@ func isDMSKDEColorSchemeActive(configDir string) bool {
 	return false
 }
 
-func applyKDEColorScheme(mode ColorMode) {
-	if !utils.CommandExists("plasma-apply-colorscheme") {
+func applyKDEColorScheme(configDir string, mode ColorMode) {
+	if !utils.CommandExists("kwriteconfig6") {
+		log.Warn("Cannot apply KDE color scheme: kwriteconfig6 is unavailable")
 		return
 	}
 
@@ -963,7 +964,8 @@ func applyKDEColorScheme(mode ColorMode) {
 	}
 
 	log.Infof("Applying KDE color scheme: %s", scheme)
-	if err := exec.Command("plasma-apply-colorscheme", scheme).Run(); err != nil {
+	configPath := filepath.Join(configDir, "kdeglobals")
+	if err := exec.Command("kwriteconfig6", "--file", configPath, "--group", "General", "--key", "ColorScheme", "--notify", scheme).Run(); err != nil {
 		log.Warnf("Failed to apply KDE color scheme: %v", err)
 	}
 }

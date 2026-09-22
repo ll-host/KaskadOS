@@ -59,7 +59,6 @@ required_installed_packages=(
   qt6-multimedia-ffmpeg
   quickshell
   sddm
-  plasma-workspace
   xorg-xwayland
 )
 for package_name in "${required_installed_packages[@]}"; do
@@ -73,6 +72,12 @@ for package_name in bluez bluez-utils; do
   grep -Fxq "  '${package_name}'" "${DESKTOP_PKGBUILD}" \
     || die "пакет kaskados-desktop не зависит от ${package_name}"
 done
+grep -Fxq "  'kconfig'" "${DESKTOP_PKGBUILD}" \
+  || die 'пакет kaskados-desktop не зависит от kconfig для применения цветовой схемы'
+if grep -Fxq "  'plasma-workspace'" "${DESKTOP_PKGBUILD}" \
+  || grep -Fxq 'plasma-workspace' "${PROFILE_DIR}/packages.x86_64"; then
+  die 'KaskadOS всё ещё устанавливает полный Plasma Workspace'
+fi
 grep -Fq 'install=kaskados-desktop.install' "${DESKTOP_PKGBUILD}" \
   || die 'пакет kaskados-desktop не подключает настройку Bluetooth'
 grep -Fq 'systemctl enable bluetooth.service' "${DESKTOP_INSTALL}" \

@@ -574,3 +574,39 @@ func TestAppendConfigConfigDirDoesNotExist(t *testing.T) {
 
 	assert.Empty(t, string(output))
 }
+
+func TestApplyKDEColorSchemeWithoutPlasmaWorkspace(t *testing.T) {
+	tempDir := t.TempDir()
+	binDir := filepath.Join(tempDir, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("failed to create bin directory: %v", err)
+	}
+
+	capturePath := filepath.Join(tempDir, "arguments")
+	kwriteconfig := filepath.Join(binDir, "kwriteconfig6")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$CAPTURE_PATH\"\n"
+	if err := os.WriteFile(kwriteconfig, []byte(script), 0o755); err != nil {
+		t.Fatalf("failed to create kwriteconfig6 stub: %v", err)
+	}
+	t.Setenv("PATH", binDir)
+	t.Setenv("CAPTURE_PATH", capturePath)
+
+	configDir := filepath.Join(tempDir, "config")
+	applyKDEColorScheme(configDir, ColorModeDark)
+
+	arguments, err := os.ReadFile(capturePath)
+	if err != nil {
+		t.Fatalf("failed to read captured arguments: %v", err)
+	}
+	assert.Equal(t, strings.Join([]string{
+		"--file",
+		filepath.Join(configDir, "kdeglobals"),
+		"--group",
+		"General",
+		"--key",
+		"ColorScheme",
+		"--notify",
+		"DankMatugenDark",
+		"",
+	}, "\n"), string(arguments))
+}

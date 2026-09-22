@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Файлы
-Comment=Файловый менеджер KaskadOS
+Comment=Работа с файлами и папками
 Exec=dms files open %f
-Icon=system-file-manager
+Icon=/opt/macqueende/shell/MolniyaMacqueenShell/quickshell/assets/kaskados-logo.png
 Terminal=false
 Categories=System;FileTools;FileManager;
 MimeType=inode/directory;

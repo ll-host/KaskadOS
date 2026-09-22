@@ -61,7 +61,6 @@ required_build_packages=(
   qt6-declarative
   vulkan-headers
   wayland-protocols
-  plasma-workspace
   yaml-cpp
 )
 mapfile -t missing_build_packages < <(pacman -T "${required_build_packages[@]}" 2>/dev/null || true)
@@ -513,7 +512,6 @@ for package_name in \
   quickshell \
   ttf-dejavu \
   xdg-desktop-portal-gtk \
-  plasma-workspace \
   xkeyboard-config \
   xorg-xwayland; do
   runtime_packages["${package_name}"]=1

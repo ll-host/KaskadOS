@@ -57,7 +57,7 @@ runtime_packages=(
     flameshot
     pacman-contrib
     pciutils
-    plasma-workspace
+    kconfig
     reflector
     quickshell
     cava

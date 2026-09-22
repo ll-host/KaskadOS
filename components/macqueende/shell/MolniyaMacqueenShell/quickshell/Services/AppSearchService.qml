@@ -153,12 +153,16 @@ Singleton {
             return app;
         const appId = app.id || app.execString || app.exec || "";
         const override = SessionData.getAppOverride(appId);
-        if (!override)
+        const desktopId = String(app.id || "").toLowerCase().replace(/\.desktop$/, "");
+        const isKaskadosFiles = desktopId === "io.kaskados.files"
+            || /^dms files open(?:\s|$)/.test(app.execString || "");
+        if (!override && !isKaskadosFiles)
             return app;
+        const brandedIcon = isKaskadosFiles ? "svg+corner:" + dmsLogoPath + "|folder" : app.icon;
         return Object.assign({}, app, {
-            name: override.name || app.name,
-            icon: override.icon || app.icon,
-            comment: override.comment || app.comment,
+            name: override?.name || app.name,
+            icon: override?.icon || brandedIcon,
+            comment: override?.comment || app.comment,
             _override: override
         });
     }
@@ -171,7 +175,7 @@ Singleton {
                 name: I18n.tr("Settings", "settings window title"),
                 icon: "svg+corner:" + dmsLogoPath + "|settings",
                 cornerIcon: "settings",
-                comment: "DMS",
+                comment: "Параметры системы",
                 action: "ipc:settings",
                 categories: ["Settings", "System"],
                 defaultTrigger: "",
@@ -182,7 +186,7 @@ Singleton {
                 name: I18n.tr("Notepad", "Notepad"),
                 icon: "svg+corner:" + dmsLogoPath + "|description",
                 cornerIcon: "description",
-                comment: "DMS",
+                comment: "Заметки и текстовые файлы",
                 action: "ipc:notepad",
                 categories: ["Office", "Utility"],
                 defaultTrigger: "",
@@ -193,7 +197,7 @@ Singleton {
                 name: I18n.tr("System Monitor", "sysmon window title"),
                 icon: "svg+corner:" + dmsLogoPath + "|monitor_heart",
                 cornerIcon: "monitor_heart",
-                comment: "DMS",
+                comment: "Процессы и ресурсы",
                 action: "ipc:processlist",
                 categories: ["System", "Monitor"],
                 defaultTrigger: "",
@@ -204,7 +208,7 @@ Singleton {
                 name: I18n.tr("Color Picker"),
                 icon: "svg+corner:" + dmsLogoPath + "|palette",
                 cornerIcon: "palette",
-                comment: "DMS",
+                comment: "Выбор цвета с экрана",
                 action: "ipc:color-picker",
                 categories: ["Graphics", "Utility"],
                 defaultTrigger: "",
@@ -214,7 +218,7 @@ Singleton {
                 id: "dms_settings_search",
                 name: I18n.tr("Settings Search"),
                 cornerIcon: "search",
-                comment: I18n.tr("DMS Settings"),
+                comment: "Поиск по настройкам",
                 defaultTrigger: "?",
                 isLauncher: true
             },
@@ -222,7 +226,7 @@ Singleton {
                 id: "dms_clipboard_search",
                 name: I18n.tr("Clipboard"),
                 cornerIcon: "content_paste",
-                comment: "DMS",
+                comment: "История буфера обмена",
                 defaultTrigger: "cb",
                 isLauncher: true,
                 viewMode: "list",
