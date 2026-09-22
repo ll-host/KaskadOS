@@ -113,6 +113,10 @@ function classifyAppSource(app) {
     var cmd0 = (app.command && app.command.length > 0) ? String(app.command[0]).toLowerCase() : "";
     var id = (app.id || "").toLowerCase();
 
+    if (id.indexOf("kaskados-windows-") === 0
+        || exec.indexOf("dms windows launch ") !== -1)
+        return "windows";
+
     if (cmd0 === "flatpak" || exec.indexOf("flatpak run ") !== -1)
         return "flatpak";
 

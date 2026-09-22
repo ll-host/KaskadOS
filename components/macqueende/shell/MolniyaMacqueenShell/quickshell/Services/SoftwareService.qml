@@ -44,7 +44,7 @@ Singleton {
     }
 
     Timer {
-        interval: 800
+        interval: 350
         repeat: true
         running: root.operationBusy
         onTriggered: root.refreshOperation()

@@ -13,6 +13,8 @@ FocusScope {
     property bool awaitingFprintForPassword: false
     property var windowControls: null
     readonly property int inputFieldHeight: Theme.fontSizeMedium + Theme.spacingL * 2
+    readonly property string displayMessage: friendlyMessage(currentFlow?.message ?? "")
+    readonly property string displayPrompt: friendlyPrompt(currentFlow?.inputPrompt ?? "")
 
     property string polkitEtcPamText: ""
     property string polkitLibPamText: ""
@@ -62,6 +64,35 @@ FocusScope {
 
     function focusPasswordField() {
         passwordField.forceActiveFocus();
+    }
+
+    function friendlyMessage(message) {
+        const raw = String(message || "");
+        const lower = raw.toLowerCase();
+        if (lower.includes("pacman")) {
+            const itemName = SoftwareService.operationRunning
+                ? String(SoftwareService.operation?.item?.name || SoftwareService.operation?.item?.packageName || "")
+                : "";
+            if (/pacman\s+-R/.test(raw))
+                return itemName ? "Для удаления «" + itemName + "» нужны права администратора."
+                    : "Для удаления приложения нужны права администратора.";
+            if (/pacman\s+-U(?:\s|$)/.test(raw))
+                return "Для установки локального пакета нужны права администратора.";
+            return itemName ? "Для установки «" + itemName + "» нужны права администратора."
+                : "Для установки или обновления приложений нужны права администратора.";
+        }
+        if (lower.includes("flatpak") && lower.includes("uninstall"))
+            return "Для удаления системного приложения нужны права администратора.";
+        if (lower.includes("/usr/bin/") || lower.includes("/usr/sbin/") || lower.includes("super user"))
+            return "Подтвердите изменение системных настроек.";
+        return raw;
+    }
+
+    function friendlyPrompt(prompt) {
+        const raw = String(prompt || "");
+        if (raw.toLowerCase().startsWith("password"))
+            return "Пароль";
+        return raw;
     }
 
     function reset() {
@@ -200,7 +231,7 @@ FocusScope {
             }
 
             StyledText {
-                text: root.currentFlow?.message ?? ""
+                text: root.displayMessage
                 font.pixelSize: Theme.fontSizeMedium
                 color: Theme.surfaceTextMedium
                 width: parent.width
@@ -260,7 +291,7 @@ FocusScope {
         spacing: Theme.spacingS
 
         StyledText {
-            text: root.currentFlow?.inputPrompt ?? ""
+            text: root.displayPrompt
             font.pixelSize: Theme.fontSizeMedium
             color: Theme.surfaceText
             width: parent.width
@@ -350,7 +381,7 @@ FocusScope {
                     StyledText {
                         id: authText
                         anchors.centerIn: parent
-                        text: I18n.tr("Authenticate")
+                        text: "Подтвердить"
                         font.pixelSize: Theme.fontSizeMedium
                         color: Theme.background
                         font.weight: Font.Medium

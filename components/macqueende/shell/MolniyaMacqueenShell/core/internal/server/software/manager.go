@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/creack/pty"
 )
 
 var packageNamePattern = regexp.MustCompile(`^[A-Za-z0-9@._+:-]+$`)
@@ -95,7 +97,7 @@ func (m *Manager) Install(item Item) error {
 	return m.start("install", item, func(ctx context.Context, logf func(string)) error {
 		switch item.Source {
 		case SourcePacman:
-			err := runLogged(ctx, logf, "pkexec", "pacman", "-Syu", "--needed", "--noconfirm", item.PackageName)
+			err := runLoggedTerminal(ctx, logf, "pkexec", "pacman", "-Syu", "--needed", "--noconfirm", item.PackageName)
 			if err == nil {
 				m.setSource(item.PackageName, "")
 			}
@@ -104,7 +106,7 @@ func (m *Manager) Install(item Item) error {
 			if err := runLogged(ctx, logf, "flatpak", "remote-add", "--user", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo"); err != nil {
 				return err
 			}
-			return runLogged(ctx, logf, "flatpak", "install", "--user", "--noninteractive", "-y", item.RemoteOr("flathub"), item.ID)
+			return runLoggedTerminal(ctx, logf, "flatpak", "install", "--user", "--noninteractive", "-y", item.RemoteOr("flathub"), item.ID)
 		case SourceAUR:
 			err := m.installAUR(ctx, item.PackageName, map[string]bool{}, logf)
 			if err == nil {
@@ -133,7 +135,7 @@ func (m *Manager) Remove(item Item) error {
 			}
 			return runLogged(ctx, logf, append([]string{"pkexec"}, args...)...)
 		}
-		err := runLogged(ctx, logf, "pkexec", "pacman", "-R", "--noconfirm", item.PackageName)
+		err := runLoggedTerminal(ctx, logf, "pkexec", "pacman", "-R", "--noconfirm", item.PackageName)
 		if err == nil {
 			m.setSource(item.PackageName, "")
 		}
@@ -154,7 +156,7 @@ func (m *Manager) InstallLocal(path string) error {
 	}
 	item := Item{ID: packageName, PackageName: packageName, Name: packageName, Source: SourceLocal}
 	return m.start("install-local", item, func(ctx context.Context, logf func(string)) error {
-		err := runLogged(ctx, logf, "pkexec", "pacman", "-U", "--needed", "--noconfirm", resolved)
+		err := runLoggedTerminal(ctx, logf, "pkexec", "pacman", "-U", "--needed", "--noconfirm", resolved)
 		if err == nil {
 			m.setSource(packageName, SourceLocal)
 		}
@@ -333,20 +335,26 @@ func (m *Manager) setPhase(phase Phase, message string) {
 }
 
 func (m *Manager) appendLog(line string) {
-	line = strings.TrimSpace(line)
+	line = cleanTerminalLine(line)
 	if line == "" {
 		return
 	}
 	if len(line) > 500 {
 		line = line[:500]
 	}
+	progress, progressKnown := progressFromLine(line)
+	message := stageFromLine(line)
 	m.mu.Lock()
 	m.state.RecentLog = append(m.state.RecentLog, line)
-	if progress, ok := progressFromLine(line); ok {
+	if message != "" && message != m.state.Message && !progressKnown {
+		m.state.Progress = 0
+		m.state.ProgressKnown = false
+	}
+	if progressKnown {
 		m.state.Progress = progress
 		m.state.ProgressKnown = true
 	}
-	if message := stageFromLine(line); message != "" {
+	if message != "" {
 		m.state.Message = message
 	}
 	if len(m.state.RecentLog) > 80 {
@@ -407,7 +415,7 @@ func (m *Manager) installAUR(ctx context.Context, name string, visiting map[stri
 	if len(official) > 0 {
 		logf("Установка зависимостей из репозиториев")
 		args := append([]string{"pkexec", "pacman", "-Syu", "--needed", "--noconfirm"}, official...)
-		if err := runLogged(ctx, logf, args...); err != nil {
+		if err := runLoggedTerminal(ctx, logf, args...); err != nil {
 			return err
 		}
 	}
@@ -426,7 +434,7 @@ func (m *Manager) installAUR(ctx context.Context, name string, visiting map[stri
 		return err
 	}
 	args := append([]string{"pkexec", "pacman", "-U", "--needed", "--noconfirm"}, packages...)
-	if err := runLogged(ctx, logf, args...); err != nil {
+	if err := runLoggedTerminal(ctx, logf, args...); err != nil {
 		return err
 	}
 	for _, packagePath := range packages {
@@ -486,6 +494,33 @@ func protectedPackage(name string) bool {
 
 func runLogged(ctx context.Context, logf func(string), argv ...string) error {
 	return runLoggedInDir(ctx, "", logf, argv...)
+}
+
+// runLoggedTerminal gives package managers a real terminal. Pacman suppresses
+// its percentage output when stdout is a pipe, which otherwise leaves the UI
+// with no trustworthy download or installation progress to display.
+func runLoggedTerminal(ctx context.Context, logf func(string), argv ...string) error {
+	if len(argv) == 0 {
+		return errors.New("пустая команда")
+	}
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color")
+	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 30, Cols: 120})
+	if err != nil {
+		return err
+	}
+	defer terminal.Close()
+
+	scanner := bufio.NewScanner(terminal)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	scanner.Split(scanLinesAndCarriageReturns)
+	for scanner.Scan() {
+		logf(scanner.Text())
+	}
+	waitErr := cmd.Wait()
+	// Linux PTYs report EIO after the slave side closes. cmd.Wait contains the
+	// actual command status, so the scanner's terminal EOF is not an error.
+	return waitErr
 }
 
 func runLoggedInDir(ctx context.Context, dir string, logf func(string), argv ...string) error {
@@ -647,7 +682,16 @@ func cloneState(state OperationState) OperationState {
 	return state
 }
 
-var percentPattern = regexp.MustCompile(`(?:^|[^0-9])(100|[0-9]{1,2})%`)
+var (
+	percentPattern = regexp.MustCompile(`(?:^|[^0-9])(100|[0-9]{1,2})%`)
+	ansiPattern    = regexp.MustCompile(`\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))`)
+)
+
+func cleanTerminalLine(line string) string {
+	line = ansiPattern.ReplaceAllString(line, "")
+	line = strings.ReplaceAll(line, "\b", "")
+	return strings.TrimSpace(line)
+}
 
 func progressFromLine(line string) (int, bool) {
 	matches := percentPattern.FindAllStringSubmatch(line, -1)
@@ -664,11 +708,15 @@ func progressFromLine(line string) (int, bool) {
 func stageFromLine(line string) string {
 	lower := strings.ToLower(line)
 	switch {
-	case strings.Contains(lower, "downloading") || strings.Contains(lower, "загрузка"):
+	case strings.Contains(lower, "downloading") || strings.Contains(lower, "retrieving packages") ||
+		strings.Contains(lower, "загрузка") || strings.Contains(lower, "получение пакетов"):
 		return "Загрузка пакета"
-	case strings.Contains(lower, "installing") || strings.Contains(lower, "установка"):
+	case strings.Contains(lower, "installing") || strings.Contains(lower, "upgrading") ||
+		strings.Contains(lower, "processing package changes") || strings.Contains(lower, "установка") ||
+		strings.Contains(lower, "обновление") || strings.Contains(lower, "обработка изменений пакета"):
 		return "Установка пакета"
-	case strings.Contains(lower, "checking") || strings.Contains(lower, "проверка"):
+	case strings.Contains(lower, "checking") || strings.Contains(lower, "loading package files") ||
+		strings.Contains(lower, "проверка") || strings.Contains(lower, "загрузка файлов пакетов"):
 		return "Проверка пакета"
 	case strings.Contains(lower, "building") || strings.Contains(lower, "сборка"):
 		return "Сборка пакета"

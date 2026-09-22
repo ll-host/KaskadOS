@@ -54,8 +54,14 @@ DankPopout {
         }
     }
 
-    popupWidth: 440
-    popupHeight: 560
+    popupWidth: 420
+    popupHeight: {
+        if (SystemUpdateService.isUpgrading || SystemUpdateService.updateCount > 0)
+            return 540;
+        if (SystemUpdateService.hasError)
+            return 420;
+        return 350;
+    }
     triggerWidth: 55
     positioning: ""
     screen: triggerScreen
@@ -96,7 +102,7 @@ DankPopout {
                 if (id) {
                     return id.charAt(0).toUpperCase() + id.slice(1);
                 }
-                return I18n.tr("System");
+                return "Система";
             }
 
             function lastCheckedText() {
@@ -106,15 +112,32 @@ DankPopout {
                 }
                 const delta = Math.max(0, nowUnix - last);
                 if (delta < 90) {
-                    return I18n.tr("checked just now");
+                    return "Проверено только что";
                 }
                 if (delta < 3600) {
-                    return I18n.tr("checked %1m ago").arg(Math.round(delta / 60));
+                    const minutes = Math.round(delta / 60);
+                    const form = minutes % 10 === 1 && minutes % 100 !== 11 ? "минуту"
+                        : [2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100) ? "минуты" : "минут";
+                    return `Проверено ${minutes} ${form} назад`;
                 }
                 if (delta < 86400) {
-                    return I18n.tr("checked %1h ago").arg(Math.round(delta / 3600));
+                    const hours = Math.round(delta / 3600);
+                    const form = hours % 10 === 1 && hours % 100 !== 11 ? "час"
+                        : [2, 3, 4].includes(hours % 10) && ![12, 13, 14].includes(hours % 100) ? "часа" : "часов";
+                    return `Проверено ${hours} ${form} назад`;
                 }
-                return I18n.tr("checked %1d ago").arg(Math.round(delta / 86400));
+                const days = Math.round(delta / 86400);
+                const form = days % 10 === 1 && days % 100 !== 11 ? "день"
+                    : [2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100) ? "дня" : "дней";
+                return `Проверено ${days} ${form} назад`;
+            }
+
+            function updateWord(count) {
+                if (count % 10 === 1 && count % 100 !== 11)
+                    return "обновление";
+                if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100))
+                    return "обновления";
+                return "обновлений";
             }
 
             Keys.onPressed: event => {
@@ -138,52 +161,80 @@ DankPopout {
                 anchors.leftMargin: Theme.spacingL
                 anchors.rightMargin: Theme.spacingL
                 anchors.topMargin: Theme.spacingL
-                height: 40
+                height: 48
 
-                StyledText {
-                    text: I18n.tr("System Updates")
-                    font.pixelSize: Theme.fontSizeLarge
-                    color: Theme.surfaceText
-                    font.weight: Font.Medium
+                Rectangle {
+                    id: headerIconContainer
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
+                    width: 40
+                    height: 40
+                    radius: 13
+                    color: SystemUpdateService.hasError
+                        ? Theme.withAlpha(Theme.error, 0.12)
+                        : Theme.primaryContainer
+
+                    DankIcon {
+                        anchors.centerIn: parent
+                        name: SystemUpdateService.hasError ? "error"
+                            : SystemUpdateService.updateCount > 0 ? "system_update_alt" : "check_circle"
+                        size: 22
+                        color: SystemUpdateService.hasError ? Theme.error : Theme.onPrimaryContainer
+                    }
+                }
+
+                Column {
+                    anchors.left: headerIconContainer.right
+                    anchors.leftMargin: Theme.spacingM
+                    anchors.right: headerActions.left
+                    anchors.rightMargin: Theme.spacingS
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 2
+
+                    StyledText {
+                        width: parent.width
+                        text: "Обновления системы"
+                        font.pixelSize: Theme.fontSizeLarge
+                        color: Theme.surfaceText
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
+
+                    StyledText {
+                        width: parent.width
+                        text: {
+                            if (SystemUpdateService.isUpgrading)
+                                return "Установка обновлений";
+                            if (SystemUpdateService.isChecking)
+                                return "Идёт проверка";
+                            if (SystemUpdateService.hasError)
+                                return "Нужна проверка";
+                            if (SystemUpdateService.updateCount === 0)
+                                return "Система в актуальном состоянии";
+                            return `Доступно: ${SystemUpdateService.updateCount} ${updaterPanel.updateWord(SystemUpdateService.updateCount)}`;
+                        }
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: SystemUpdateService.hasError ? Theme.error : Theme.surfaceVariantText
+                        elide: Text.ElideRight
+                    }
                 }
 
                 Row {
+                    id: headerActions
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Theme.spacingS
 
-                    StyledText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: {
-                            switch (true) {
-                            case SystemUpdateService.isUpgrading:
-                                return I18n.tr("Upgrading...");
-                            case SystemUpdateService.isChecking:
-                                return I18n.tr("Checking...");
-                            case SystemUpdateService.hasError:
-                                return I18n.tr("Error");
-                            case SystemUpdateService.updateCount === 0:
-                                return I18n.tr("Up to date");
-                            case SystemUpdateService.updateCount === 1:
-                                return I18n.tr("%1 update").arg(SystemUpdateService.updateCount);
-                            default:
-                                return I18n.tr("%1 updates").arg(SystemUpdateService.updateCount);
-                            }
-                        }
-                        font.pixelSize: Theme.fontSizeMedium
-                        color: SystemUpdateService.hasError ? Theme.error : Theme.surfaceVariantText
-                    }
-
                     DankActionButton {
                         id: refreshButton
-                        buttonSize: 28
+                        buttonSize: 36
                         iconName: "refresh"
-                        iconSize: 18
+                        iconSize: 19
                         iconColor: Theme.surfaceText
+                        backgroundColor: Theme.surfaceContainerHighest
                         enabled: !SystemUpdateService.isChecking && !SystemUpdateService.isUpgrading
                         opacity: enabled ? 1.0 : 0.5
+                        tooltipText: "Проверить обновления"
                         onClicked: SystemUpdateService.checkForUpdates()
 
                         RotationAnimator on rotation {
@@ -212,16 +263,17 @@ DankPopout {
                 anchors.topMargin: Theme.spacingS
                 visible: SystemUpdateService.backends.length > 0 && !SystemUpdateService.isUpgrading
                 text: {
-                    const kinds = [];
+                    const kinds = [updaterPanel.distroLabel()];
                     for (const b of SystemUpdateService.backends || []) {
-                        const label = b.repo === "flatpak" ? I18n.tr("Flatpak") : I18n.tr("System");
+                        const label = b.repo === "flatpak" ? "Flatpak" : b.repo === "aur" ? "AUR" : "";
+                        if (!label)
+                            continue;
                         if (!kinds.includes(label)) {
                             kinds.push(label);
                         }
                     }
-                    const distro = updaterPanel.distroLabel();
                     const checked = updaterPanel.lastCheckedText();
-                    const base = `${distro}: ${kinds.join(", ")}`;
+                    const base = `Источники: ${kinds.join(" · ")}`;
                     return checked ? `${base} · ${checked}` : base;
                 }
                 font.pixelSize: Theme.fontSizeSmall
@@ -242,18 +294,24 @@ DankPopout {
                 height: 44
 
                 Rectangle {
-                    width: (parent.width - Theme.spacingM) / 2
+                    id: primaryButton
+                    visible: SystemUpdateService.isUpgrading || SystemUpdateService.updateCount > 0
+                    width: visible ? parent.width - closeButton.width - Theme.spacingM : 0
                     height: parent.height
                     radius: Theme.cornerRadius
-                    color: primaryMouseArea.containsMouse && primaryMouseArea.enabled ? Theme.primaryHover : Theme.secondaryHover
+                    color: SystemUpdateService.isUpgrading
+                        ? (primaryMouseArea.containsMouse ? Theme.errorPressed : Theme.withAlpha(Theme.error, 0.12))
+                        : (primaryMouseArea.containsMouse ? Theme.primaryHover : Theme.primary)
                     opacity: primaryMouseArea.enabled ? 1.0 : 0.5
 
                     StyledText {
                         anchors.centerIn: parent
-                        text: SystemUpdateService.isUpgrading ? I18n.tr("Cancel") : I18n.tr("Update All")
+                        text: SystemUpdateService.isUpgrading
+                            ? "Остановить обновление"
+                            : `Установить ${SystemUpdateService.updateCount} ${updaterPanel.updateWord(SystemUpdateService.updateCount)}`
                         font.pixelSize: Theme.fontSizeMedium
-                        font.weight: Font.Medium
-                        color: Theme.primary
+                        font.weight: Font.DemiBold
+                        color: SystemUpdateService.isUpgrading ? Theme.error : Theme.onPrimary
                     }
 
                     MouseArea {
@@ -291,14 +349,17 @@ DankPopout {
                 }
 
                 Rectangle {
-                    width: (parent.width - Theme.spacingM) / 2
+                    id: closeButton
+                    width: primaryButton.visible ? 104 : parent.width
                     height: parent.height
                     radius: Theme.cornerRadius
-                    color: closeMouseArea.containsMouse ? Theme.errorPressed : Theme.secondaryHover
+                    color: closeMouseArea.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainerHigh
+                    border.width: 1
+                    border.color: Theme.outlineLight
 
                     StyledText {
                         anchors.centerIn: parent
-                        text: I18n.tr("Close")
+                        text: primaryButton.visible ? "Позже" : "Закрыть"
                         font.pixelSize: Theme.fontSizeMedium
                         font.weight: Font.Medium
                         color: Theme.surfaceText
@@ -332,34 +393,88 @@ DankPopout {
                 anchors.topMargin: Theme.spacingM
                 anchors.bottomMargin: Theme.spacingM
                 radius: Theme.cornerRadius
-                color: Theme.surfaceLight
+                color: Theme.surfaceContainerLow
+                border.width: 1
+                border.color: Theme.outlineLight
 
-                StyledText {
-                    id: statusText
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: ignoredSection.top
-                    anchors.margins: Theme.spacingM
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                Column {
+                    id: statusContent
+                    anchors.centerIn: parent
+                    width: parent.width - Theme.spacingXL * 2
+                    spacing: Theme.spacingM
                     visible: !SystemUpdateService.isUpgrading && (SystemUpdateService.updateCount === 0 || SystemUpdateService.hasError || SystemUpdateService.isChecking)
-                    text: {
-                        switch (true) {
-                        case SystemUpdateService.hasError:
-                            const msg = I18n.tr("Failed: %1").arg(SystemUpdateService.errorMessage);
-                            return SystemUpdateService.errorHint ? `${msg}\n\n${SystemUpdateService.errorHint}` : msg;
-                        case !SystemUpdateService.helperAvailable:
-                            return I18n.tr("No supported package manager found.");
-                        case SystemUpdateService.isChecking:
-                            return I18n.tr("Checking for updates...");
-                        default:
-                            return I18n.tr("Your system is up to date!");
+
+                    Rectangle {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: 58
+                        height: 58
+                        radius: 20
+                        color: SystemUpdateService.hasError
+                            ? Theme.withAlpha(Theme.error, 0.12)
+                            : Theme.primaryContainer
+
+                        DankIcon {
+                            id: statusContentIcon
+                            anchors.centerIn: parent
+                            name: SystemUpdateService.isChecking ? "refresh"
+                                : SystemUpdateService.hasError ? "error" : "check_circle"
+                            size: 30
+                            color: SystemUpdateService.hasError ? Theme.error : Theme.onPrimaryContainer
+
+                            RotationAnimator on rotation {
+                                from: 0
+                                to: 360
+                                duration: 1000
+                                loops: Animation.Infinite
+                                running: SystemUpdateService.isChecking
+
+                                onRunningChanged: {
+                                    if (!running)
+                                        statusContentIcon.rotation = 0;
+                                }
+                            }
                         }
                     }
-                    font.pixelSize: Theme.fontSizeMedium
-                    color: SystemUpdateService.hasError ? Theme.error : Theme.surfaceText
-                    wrapMode: Text.WordWrap
+
+                    Column {
+                        width: parent.width
+                        spacing: Theme.spacingXS
+
+                        StyledText {
+                            width: parent.width
+                            text: {
+                                if (SystemUpdateService.hasError)
+                                    return "Не удалось проверить обновления";
+                                if (!SystemUpdateService.helperAvailable)
+                                    return "Служба обновлений недоступна";
+                                if (SystemUpdateService.isChecking)
+                                    return "Проверяем обновления…";
+                                return "Всё обновлено";
+                            }
+                            horizontalAlignment: Text.AlignHCenter
+                            font.pixelSize: Theme.fontSizeLarge
+                            font.weight: Font.DemiBold
+                            color: SystemUpdateService.hasError ? Theme.error : Theme.surfaceText
+                            wrapMode: Text.WordWrap
+                        }
+
+                        StyledText {
+                            width: parent.width
+                            text: {
+                                if (SystemUpdateService.hasError)
+                                    return SystemUpdateService.errorHint || SystemUpdateService.errorMessage || "Повторите проверку чуть позже";
+                                if (!SystemUpdateService.helperAvailable)
+                                    return "Не найден поддерживаемый менеджер пакетов";
+                                if (SystemUpdateService.isChecking)
+                                    return "Это может занять несколько секунд";
+                                return "Новых пакетов для установки нет";
+                            }
+                            horizontalAlignment: Text.AlignHCenter
+                            font.pixelSize: Theme.fontSizeSmall
+                            color: Theme.surfaceVariantText
+                            wrapMode: Text.WordWrap
+                        }
+                    }
                 }
 
                 DankListView {
@@ -377,9 +492,9 @@ DankPopout {
                     delegate: Rectangle {
                         id: packageRow
                         width: ListView.view.width
-                        height: 48
+                        height: 56
                         radius: Theme.cornerRadius
-                        color: rowHoverHandler.hovered ? Theme.primaryHoverLight : Theme.withAlpha(Theme.primaryHoverLight, 0)
+                        color: rowHoverHandler.hovered ? Theme.primaryHoverLight : Theme.surfaceContainer
 
                         required property var modelData
 
@@ -397,22 +512,23 @@ DankPopout {
 
                             Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 64
-                                height: 18
-                                radius: 9
-                                color: Theme.primaryPressed
+                                width: 58
+                                height: 24
+                                radius: 12
+                                color: Theme.primaryContainer
 
                                 StyledText {
                                     anchors.centerIn: parent
-                                    text: modelData.repo || ""
-                                    font.pixelSize: Theme.fontSizeSmall
-                                    color: Theme.primary
+                                    text: modelData.repo === "flatpak" ? "Flatpak"
+                                        : modelData.repo === "aur" ? "AUR" : "Система"
+                                    font.pixelSize: Theme.fontSizeSmall - 1
+                                    color: Theme.onPrimaryContainer
                                 }
                             }
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 64 - Theme.spacingS * 2 - 28
+                                width: parent.width - 58 - Theme.spacingS * 2 - 28
                                 spacing: Theme.spacingXXS
 
                                 StyledText {
@@ -474,7 +590,7 @@ DankPopout {
                             iconSize: 16
                             iconColor: Theme.surfaceVariantText
                             visible: rowHoverHandler.hovered && SystemUpdateService.canIgnorePackage(packageRow.modelData)
-                            tooltipText: I18n.tr("Ignore this package")
+                            tooltipText: "Скрыть это обновление"
                             onClicked: SystemUpdateService.ignorePackage(packageRow.modelData.name)
                         }
                     }
@@ -516,7 +632,7 @@ DankPopout {
                             anchors.left: ignoredToggleIcon.right
                             anchors.leftMargin: Theme.spacingS
                             anchors.verticalCenter: parent.verticalCenter
-                            text: I18n.tr("Ignored (%1)").arg(ignoredSection.ignoredNames.length)
+                            text: `Скрытые обновления: ${ignoredSection.ignoredNames.length}`
                             font.pixelSize: Theme.fontSizeSmall
                             color: Theme.surfaceVariantText
                         }
@@ -583,7 +699,7 @@ DankPopout {
                                 iconName: "visibility"
                                 iconSize: 16
                                 iconColor: Theme.surfaceVariantText
-                                tooltipText: I18n.tr("Stop ignoring %1").arg(ignoredRow.modelData)
+                                tooltipText: `Снова показывать ${ignoredRow.modelData}`
                                 onClicked: SystemUpdateService.unignorePackage(ignoredRow.modelData)
                             }
                         }
@@ -607,7 +723,7 @@ DankPopout {
                         width: parent.width
                         text: SystemUpdateService.operationLabel.length > 0
                             ? SystemUpdateService.operationLabel
-                            : I18n.tr("Running in terminal")
+                            : "Обновление выполняется в терминале"
                         font.pixelSize: Theme.fontSizeLarge
                         font.weight: Font.Medium
                         color: Theme.surfaceText
@@ -616,7 +732,7 @@ DankPopout {
 
                     StyledText {
                         width: parent.width
-                        text: I18n.tr("AUR helpers are interactive — see the terminal window for prompts. This popout will return to idle when the upgrade exits.")
+                        text: "Для обновления AUR может потребоваться ответ в окне терминала. После завершения это окно обновится автоматически."
                         font.pixelSize: Theme.fontSizeSmall
                         color: Theme.surfaceVariantText
                         wrapMode: Text.WordWrap

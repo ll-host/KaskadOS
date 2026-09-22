@@ -18,6 +18,7 @@ FocusScope {
     readonly property bool softwareMode: searchController.searchMode === "store" || searchController.searchMode === "installed"
     readonly property bool windowsMode: searchController.searchMode === "windows"
     readonly property bool specialMode: softwareMode || windowsMode
+    readonly property bool applicationHome: searchController.searchMode === "apps"
 
     readonly property bool _hasQuery: searchInput.text.length > 0
     readonly property real _searchBarH: 56
@@ -28,7 +29,8 @@ FocusScope {
     readonly property var _resultRows: _buildRows()
     readonly property real _resultsContentH: specialMode ? _maxResultsH
         : (_resultRows.length > 0 ? _resultRows.length * _rowH + resultsList.bottomInset : _statusH)
-    readonly property real _resultsH: specialMode ? _maxResultsH : (_hasQuery ? Math.min(_resultsContentH, _maxResultsH) : 0)
+    readonly property real _resultsH: specialMode || applicationHome ? _maxResultsH
+        : (_hasQuery ? Math.min(_resultsContentH, _maxResultsH) : 0)
     readonly property int _fastDuration: 90
     readonly property int _resizeDuration: Theme.expressiveDurations.fast
     readonly property bool _blurActive: Theme.blurForegroundLayers || Theme.transparentBlurLayers
@@ -105,6 +107,16 @@ FocusScope {
             return;
         const localPos = root.mapFromItem(null, sceneX, sceneY);
         contextMenu.show(localPos.x, localPos.y, item, fromKeyboard);
+    }
+
+    function _selectApplicationSection(section) {
+        if (section === "windows") {
+            searchController.setMode("windows");
+            return;
+        }
+        searchController.appSourceFilter = section;
+        searchController.setMode("apps");
+        root._focusSearch();
     }
 
     function _handleKey(event) {
@@ -191,35 +203,14 @@ FocusScope {
             break;
         case Qt.Key_1:
             if (hasCtrl || hasAlt) {
-                searchController.setMode("all");
+                searchController.setMode("apps");
                 event.accepted = true;
                 return;
             }
             break;
         case Qt.Key_2:
             if (hasCtrl || hasAlt) {
-                searchController.setMode("apps");
-                event.accepted = true;
-                return;
-            }
-            break;
-        case Qt.Key_3:
-            if (hasCtrl || hasAlt) {
                 searchController.setMode("store");
-                event.accepted = true;
-                return;
-            }
-            break;
-        case Qt.Key_4:
-            if (hasCtrl || hasAlt) {
-                searchController.setMode("installed");
-                event.accepted = true;
-                return;
-            }
-            break;
-        case Qt.Key_5:
-            if (hasCtrl || hasAlt) {
-                searchController.setMode("windows");
                 event.accepted = true;
                 return;
             }
@@ -319,6 +310,7 @@ FocusScope {
                     name: searchController.searchMode === "store" ? "storefront"
                         : searchController.searchMode === "installed" ? "inventory_2"
                         : searchController.searchMode === "windows" ? "window"
+                        : searchController.searchMode === "apps" ? "apps"
                         : searchController.activePluginId ? "extension" : "search"
                     size: 20
                     color: searchInput.activeFocus ? Theme.primary : Theme.surfaceVariantText
@@ -408,7 +400,7 @@ FocusScope {
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.softwareMode ? "Найти приложение или пакет"
                     : root.windowsMode ? "Найти Windows-приложение"
-                    : I18n.tr("Spotlight Search")
+                    : "Найти приложение, файл или настройку"
                 font.pixelSize: 18
                 font.weight: Font.Medium
                 color: Theme.outlineButton
@@ -435,6 +427,10 @@ FocusScope {
                     if (root.specialMode) {
                         return;
                     } else if (text.length > 0) {
+                        if (searchController.searchMode === "apps") {
+                            searchController.appSourceFilter = "all";
+                            searchController.setMode("all", true);
+                        }
                         searchController.setSearchQuery(text);
                     } else {
                         searchController.reset();
@@ -463,9 +459,47 @@ FocusScope {
             }
         }
 
+        Row {
+            id: applicationFilterBar
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: Theme.spacingS
+            anchors.rightMargin: Theme.spacingS
+            anchors.topMargin: Theme.spacingS
+            height: visible ? 36 : 0
+            visible: searchController.searchMode === "apps" || searchController.searchMode === "windows"
+            spacing: Theme.spacingXXS
+
+            Repeater {
+                model: [
+                    {"label": "Все", "value": "all"},
+                    {"label": "Linux", "value": "linux"},
+                    {"label": "Windows", "value": "windows"}
+                ]
+
+                DankButton {
+                    required property var modelData
+                    text: modelData.label
+                    backgroundColor: (modelData.value === "windows"
+                        ? searchController.searchMode === "windows"
+                        : searchController.searchMode === "apps" && searchController.appSourceFilter === modelData.value)
+                        ? Theme.primary : Theme.surfaceContainerHighest
+                    textColor: (modelData.value === "windows"
+                        ? searchController.searchMode === "windows"
+                        : searchController.searchMode === "apps" && searchController.appSourceFilter === modelData.value)
+                        ? Theme.primaryText : Theme.surfaceText
+                    onClicked: root._selectApplicationSection(modelData.value)
+                }
+            }
+        }
+
         SpotlightResultsList {
             id: resultsList
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: applicationFilterBar.bottom
+            anchors.bottom: parent.bottom
             visible: !root.specialMode
             controller: searchController
             hasQuery: root._hasQuery
@@ -489,7 +523,10 @@ FocusScope {
 
         WindowsAppsView {
             id: windowsAppsView
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: applicationFilterBar.bottom
+            anchors.bottom: parent.bottom
             anchors.margins: Theme.spacingS
             visible: root.windowsMode
             focus: visible
@@ -500,24 +537,18 @@ FocusScope {
 
     readonly property var _categoryModel: [
         {
-            "label": "Поиск",
-            "mode": "all"
-        },
-        {
             "label": "Приложения",
             "mode": "apps"
         },
         {
             "label": "Программы",
             "mode": "store"
-        },
-        {
-            "label": "Windows",
-            "mode": "windows"
         }
     ]
 
     function _isCategorySelected(cat) {
+        if (cat.mode === "apps")
+            return searchController.searchMode === "apps" || searchController.searchMode === "all" || searchController.searchMode === "windows";
         return searchController.searchMode === cat.mode;
     }
 

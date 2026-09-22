@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import qs.Common
 import qs.Modals.Common
 import qs.Services
@@ -20,6 +21,10 @@ FocusScope {
     ]
     signal localPackageRequested
 
+    Ref {
+        service: SystemUpdateService
+    }
+
     Component.onCompleted: {
         if (mode === "installed")
             SoftwareService.loadInstalled();
@@ -30,7 +35,8 @@ FocusScope {
     }
 
     function requestAction(item) {
-        if (!item || SoftwareService.itemOperationState(item) !== "idle")
+        if (!item || SystemUpdateService.isChecking || SystemUpdateService.isUpgrading
+                || SoftwareService.itemOperationState(item) !== "idle")
             return;
         if (item.installed) {
             actionConfirm.showWithOptions({
@@ -78,6 +84,8 @@ FocusScope {
         selectedIndex = 0;
         if (mode === "installed")
             SoftwareService.loadInstalled();
+        else if (mode === "updates")
+            SystemUpdateService.requestState();
         else
             SoftwareService.setQuery(query);
     }
@@ -110,48 +118,56 @@ FocusScope {
         spacing: Theme.spacingS
 
         Rectangle {
+            id: operationCard
             width: parent.width
-            height: SoftwareService.operationBusy ? 88 : 0
+            height: SoftwareService.operationBusy ? 100 : 0
             visible: height > 0
             radius: Theme.cornerRadius
-            color: Theme.primaryContainer
+            color: Theme.surfaceContainerHigh
+            border.width: 1
+            border.color: Theme.outlineLight
             clip: true
+
+            readonly property bool progressKnown: SoftwareService.operation?.progressKnown || false
+            readonly property real progressValue: Math.max(0, Math.min(100, SoftwareService.operation?.progress || 0))
 
             Column {
                 anchors.fill: parent
-                anchors.margins: Theme.spacingS
-                spacing: 5
+                anchors.margins: Theme.spacingM
+                spacing: Theme.spacingS
 
                 Row {
                     width: parent.width
+                    height: 42
                     spacing: Theme.spacingS
 
-                    DankIcon {
-                        id: operationIcon
+                    Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
-                        name: SoftwareService.operation?.action === "remove" ? "delete" : "progress_activity"
-                        size: 20
-                        color: Theme.onPrimaryContainer
+                        width: 38
+                        height: 38
+                        radius: 12
+                        color: Theme.primaryContainer
 
-                        RotationAnimator on rotation {
-                            from: 0
-                            to: 360
-                            duration: 1200
-                            loops: Animation.Infinite
-                            running: SoftwareService.operationRunning
+                        DankIcon {
+                            id: operationIcon
+                            anchors.centerIn: parent
+                            name: SoftwareService.operation?.action === "remove" ? "delete" : "download"
+                            size: 20
+                            color: Theme.onPrimaryContainer
                         }
                     }
 
                     Column {
-                        width: parent.width - cancelButton.width - operationIcon.width - Theme.spacingS * 2
-                        spacing: 1
+                        width: parent.width - cancelButton.width - 38 - Theme.spacingS * 2
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
 
                         StyledText {
                             width: parent.width
                             text: SoftwareService.operation?.item?.name || SoftwareService.operation?.item?.packageName || "Подготовка операции"
-                            color: Theme.onPrimaryContainer
+                            color: Theme.surfaceText
                             font.pixelSize: Theme.fontSizeMedium
-                            font.weight: Font.Medium
+                            font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
 
@@ -163,7 +179,7 @@ FocusScope {
                                      + " из " + SoftwareService.operation.total
                                      + " · осталось: " + SoftwareService.remainingCount
                                    : "")
-                            color: Theme.withAlpha(Theme.onPrimaryContainer, 0.78)
+                            color: Theme.surfaceVariantText
                             font.pixelSize: Theme.fontSizeSmall
                             elide: Text.ElideRight
                         }
@@ -174,8 +190,8 @@ FocusScope {
                         anchors.verticalCenter: parent.verticalCenter
                         buttonSize: 32
                         iconName: "close"
-                        iconColor: Theme.onPrimaryContainer
-                        backgroundColor: Theme.withAlpha(Theme.onPrimaryContainer, 0.08)
+                        iconColor: Theme.error
+                        backgroundColor: Theme.withAlpha(Theme.error, 0.10)
                         tooltipText: "Отменить текущую операцию"
                         onClicked: SoftwareService.cancel()
                     }
@@ -183,28 +199,66 @@ FocusScope {
 
                 Row {
                     width: parent.width
+                    height: 22
                     spacing: Theme.spacingS
 
-                    M3WaveProgress {
+                    Rectangle {
+                        id: progressTrack
                         width: parent.width - progressPercent.width - Theme.spacingS
-                        height: 14
-                        value: SoftwareService.operation?.progressKnown ? SoftwareService.operation.progress / 100 : 0.45
-                        actualValue: value
-                        isPlaying: SoftwareService.operationRunning
-                        amp: 1.1
-                        lineWidth: 2
-                        wavelength: 18
+                        height: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        radius: height / 2
+                        color: Theme.surfaceContainerHighest
+                        clip: true
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: parent.width * operationCard.progressValue / 100
+                            radius: parent.radius
+                            color: Theme.primary
+                            visible: operationCard.progressKnown
+
+                            Behavior on width {
+                                NumberAnimation {
+                                    duration: 180
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            id: indeterminateProgress
+                            width: Math.max(32, parent.width * 0.28)
+                            height: parent.height
+                            radius: parent.radius
+                            color: Theme.primary
+                            visible: !operationCard.progressKnown
+
+                            SequentialAnimation on x {
+                                running: indeterminateProgress.visible && SoftwareService.operationRunning
+                                loops: Animation.Infinite
+                                NumberAnimation {
+                                    from: -indeterminateProgress.width
+                                    to: progressTrack.width
+                                    duration: 1050
+                                    easing.type: Easing.InOutCubic
+                                }
+                                PauseAnimation { duration: 100 }
+                            }
+                        }
                     }
 
                     StyledText {
                         id: progressPercent
                         anchors.verticalCenter: parent.verticalCenter
-                        text: SoftwareService.operation?.progressKnown
-                            ? SoftwareService.operation.progress + "%"
-                            : (SoftwareService.operation?.completed || 0) + "/" + (SoftwareService.operation?.total || 1)
-                        color: Theme.onPrimaryContainer
+                        width: operationCard.progressKnown ? 40 : 58
+                        horizontalAlignment: Text.AlignRight
+                        text: operationCard.progressKnown ? Math.round(operationCard.progressValue) + "%" : "В процессе"
+                        color: operationCard.progressKnown ? Theme.primary : Theme.surfaceVariantText
                         font.pixelSize: Theme.fontSizeSmall
-                        font.weight: Font.Medium
+                        font.weight: Font.DemiBold
                     }
                 }
             }
@@ -223,7 +277,8 @@ FocusScope {
                 Repeater {
                     model: [
                         {"label": "Каталог", "value": "store", "icon": "storefront"},
-                        {"label": "Установленные", "value": "installed", "icon": "inventory_2"}
+                        {"label": "Установленные", "value": "installed", "icon": "inventory_2"},
+                        {"label": "Обновления", "value": "updates", "icon": "system_update"}
                     ]
 
                     DankButton {
@@ -272,20 +327,22 @@ FocusScope {
                     anchors.verticalCenter: parent.verticalCenter
                     text: SoftwareService.searching ? "Ищем…"
                         : root.mode === "installed" && SoftwareService.loadingInstalled ? "Загружаем…"
+                        : root.mode === "updates" ? SystemUpdateService.updateCount + " шт."
                         : root.query.trim().length >= 2 || root.mode === "installed" ? root.visibleItems.length + " шт." : ""
                     font.pixelSize: Theme.fontSizeSmall
                     color: Theme.surfaceVariantText
                 }
             }
 
-            DankButton {
+            DankActionButton {
                 id: localPackageButton
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.mode === "store"
-                text: "Установить файл"
+                buttonSize: 34
                 iconName: "package_2"
                 backgroundColor: Theme.surfaceContainerHighest
-                textColor: Theme.surfaceText
+                enabled: !SystemUpdateService.isChecking && !SystemUpdateService.isUpgrading
+                tooltipText: "Установить пакет из файла"
                 onClicked: root.localPackageRequested()
             }
         }
@@ -293,6 +350,7 @@ FocusScope {
         DankFilterChips {
             id: sourceFilterChips
             width: parent.width
+            visible: root.mode !== "updates"
             model: root.sourceFilters
             currentIndex: root.sourceFilterIndex()
             showCheck: false
@@ -312,6 +370,7 @@ FocusScope {
             clip: true
             spacing: Theme.spacingXXS
             model: root.visibleItems
+            visible: root.mode !== "updates"
 
             delegate: Rectangle {
                 id: softwareItem
@@ -420,6 +479,7 @@ FocusScope {
                     backgroundColor: operationState === "idle" && softwareItem.modelData.installed
                         ? Theme.withAlpha(Theme.error, 0.1) : Theme.primary
                     enabled: operationState === "idle"
+                        && !SystemUpdateService.isChecking && !SystemUpdateService.isUpgrading
                     tooltipText: operationState === "running" ? "Выполняется"
                         : operationState === "requesting" ? "Добавляем в очередь"
                         : operationState === "queued" ? "В очереди · позиция " + SoftwareService.itemQueuePosition(softwareItem.modelData)
@@ -487,6 +547,157 @@ FocusScope {
                 width: parent.width - Theme.spacingXL * 2
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
+            }
+        }
+
+        Item {
+            id: updatesPanel
+            width: parent.width
+            height: parent.height - y
+            visible: root.mode === "updates"
+
+            Row {
+                id: updateActions
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: 40
+                spacing: Theme.spacingS
+
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - refreshUpdates.width - installUpdates.width - Theme.spacingS * 2
+                    text: SystemUpdateService.isChecking ? "Проверяем наличие обновлений…"
+                        : SystemUpdateService.isUpgrading ? (SystemUpdateService.operationLabel || "Устанавливаем обновления…")
+                        : SystemUpdateService.hasError ? SystemUpdateService.errorMessage
+                        : SystemUpdateService.updateCount === 0 ? "Система и приложения обновлены"
+                        : "Доступно обновлений: " + SystemUpdateService.updateCount
+                    color: SystemUpdateService.hasError ? Theme.error : Theme.surfaceVariantText
+                    font.pixelSize: Theme.fontSizeSmall
+                    elide: Text.ElideRight
+                }
+
+                DankActionButton {
+                    id: refreshUpdates
+                    anchors.verticalCenter: parent.verticalCenter
+                    buttonSize: 34
+                    iconName: "refresh"
+                    enabled: !SystemUpdateService.isChecking && !SystemUpdateService.isUpgrading
+                        && !SoftwareService.operationBusy
+                    tooltipText: "Проверить обновления"
+                    onClicked: SystemUpdateService.checkForUpdates()
+
+                    RotationAnimator on rotation {
+                        from: 0
+                        to: 360
+                        duration: 900
+                        loops: Animation.Infinite
+                        running: SystemUpdateService.isChecking
+                    }
+                }
+
+                DankButton {
+                    id: installUpdates
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: SystemUpdateService.isUpgrading ? "Остановить" : "Обновить всё"
+                    iconName: SystemUpdateService.isUpgrading ? "close" : "system_update"
+                    enabled: SystemUpdateService.isUpgrading
+                        || (SystemUpdateService.updateCount > 0 && !SoftwareService.operationBusy)
+                    backgroundColor: SystemUpdateService.isUpgrading ? Theme.errorContainer : Theme.primary
+                    textColor: SystemUpdateService.isUpgrading ? Theme.onErrorContainer : Theme.primaryText
+                    onClicked: {
+                        if (SystemUpdateService.isUpgrading) {
+                            SystemUpdateService.cancelUpdates();
+                            return;
+                        }
+                        SystemUpdateService.runUpdates({
+                            "includeFlatpak": SettingsData.updaterIncludeFlatpak,
+                            "includeAUR": SettingsData.updaterAllowAUR,
+                            "terminal": SessionData.terminalOverride
+                        });
+                    }
+                }
+            }
+
+            ListView {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: updateActions.bottom
+                anchors.bottom: parent.bottom
+                clip: true
+                spacing: Theme.spacingXXS
+                model: SystemUpdateService.availableUpdates
+                visible: !SystemUpdateService.isChecking && !SystemUpdateService.isUpgrading
+                    && !SystemUpdateService.hasError
+
+                delegate: Rectangle {
+                    id: updateItem
+                    required property var modelData
+                    width: ListView.view.width
+                    height: 58
+                    radius: Theme.cornerRadius
+                    color: updateHover.hovered ? Theme.primaryHoverLight : "transparent"
+
+                    HoverHandler { id: updateHover }
+
+                    Rectangle {
+                        id: updateSource
+                        anchors.left: parent.left
+                        anchors.leftMargin: Theme.spacingM
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 68
+                        height: 22
+                        radius: 11
+                        color: Theme.surfaceContainerHighest
+
+                        StyledText {
+                            anchors.centerIn: parent
+                            text: updateItem.modelData.repo === "system" ? "Pacman"
+                                : updateItem.modelData.repo === "aur" ? "AUR"
+                                : updateItem.modelData.repo === "flatpak" ? "Flatpak"
+                                : updateItem.modelData.repo || "Система"
+                            color: Theme.primary
+                            font.pixelSize: Theme.fontSizeSmall - 1
+                        }
+                    }
+
+                    Column {
+                        anchors.left: updateSource.right
+                        anchors.leftMargin: Theme.spacingM
+                        anchors.right: parent.right
+                        anchors.rightMargin: Theme.spacingM
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
+
+                        StyledText {
+                            width: parent.width
+                            text: updateItem.modelData.name || ""
+                            color: Theme.surfaceText
+                            font.pixelSize: Theme.fontSizeMedium
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                        }
+
+                        StyledText {
+                            width: parent.width
+                            text: (updateItem.modelData.fromVersion || "")
+                                + ((updateItem.modelData.fromVersion && updateItem.modelData.toVersion) ? " → " : "")
+                                + (updateItem.modelData.toVersion || "")
+                            color: Theme.surfaceVariantText
+                            font.pixelSize: Theme.fontSizeSmall
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
+
+            StyledText {
+                anchors.centerIn: parent
+                visible: !SystemUpdateService.isChecking && !SystemUpdateService.isUpgrading
+                    && !SystemUpdateService.hasError && SystemUpdateService.updateCount === 0
+                text: "Обновлений нет"
+                color: Theme.surfaceVariantText
+                font.pixelSize: Theme.fontSizeMedium
             }
         }
     }

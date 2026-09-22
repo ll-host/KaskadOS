@@ -39,6 +39,21 @@ FocusScope {
     readonly property color _launcherSearchBorderColor: Theme.withAlpha(Theme.outline, _blurActive ? 0.16 : Theme.layerOutlineOpacity)
     readonly property color _launcherSearchFocusedBorderColor: Theme.withAlpha(Theme.primary, _blurActive ? 0.72 : 1.0)
 
+    function footerModeSelected(mode) {
+        if (mode === "apps")
+            return controller.searchMode === "apps" || controller.searchMode === "all" || controller.searchMode === "windows";
+        return controller.searchMode === mode;
+    }
+
+    function selectApplicationSection(section) {
+        if (section === "windows") {
+            controller.setMode("windows");
+            return;
+        }
+        controller.appSourceFilter = section;
+        controller.setMode("apps");
+    }
+
     function resetScroll() {
         resultsList.resetScroll();
     }
@@ -378,11 +393,6 @@ FocusScope {
                 Repeater {
                     model: [
                         {
-                            id: "all",
-                            label: "Поиск",
-                            icon: "search"
-                        },
-                        {
                             id: "apps",
                             label: "Приложения",
                             icon: "apps"
@@ -391,11 +401,6 @@ FocusScope {
                             id: "store",
                             label: "Программы",
                             icon: "storefront"
-                        },
-                        {
-                            id: "windows",
-                            label: "Windows",
-                            icon: "window"
                         }
                     ]
 
@@ -406,7 +411,7 @@ FocusScope {
                         width: buttonContent.width + Theme.spacingM * 2
                         height: 28
                         radius: Theme.cornerRadius
-                        color: controller.searchMode === modelData.id ? Theme.buttonBg : modeArea.containsMouse ? Theme.surfaceContainerHighest : Theme.withAlpha(Theme.surfaceContainerHighest, 0)
+                        color: root.footerModeSelected(modelData.id) ? Theme.buttonBg : modeArea.containsMouse ? Theme.surfaceContainerHighest : Theme.withAlpha(Theme.surfaceContainerHighest, 0)
 
                         Row {
                             id: buttonContent
@@ -417,7 +422,7 @@ FocusScope {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: modelData.icon
                                 size: 14
-                                color: controller.searchMode === modelData.id ? Theme.buttonText : Theme.surfaceVariantText
+                                color: root.footerModeSelected(modelData.id) ? Theme.buttonText : Theme.surfaceVariantText
                             }
 
                             StyledText {
@@ -425,7 +430,7 @@ FocusScope {
                                 visible: true
                                 text: modelData.label
                                 font.pixelSize: Theme.fontSizeSmall
-                                color: controller.searchMode === modelData.id ? Theme.buttonText : Theme.surfaceText
+                                color: root.footerModeSelected(modelData.id) ? Theme.buttonText : Theme.surfaceText
                             }
                         }
 
@@ -536,12 +541,20 @@ FocusScope {
                 font.pixelSize: Theme.fontSizeLarge
                 enabled: root.parentModal ? (root.parentModal.spotlightOpen || root.parentModal.isClosing) : true
                 placeholderText: root.softwareMode ? "Найти приложение или пакет"
-                    : root.windowsMode ? "Найти Windows-приложение" : ""
+                    : root.windowsMode ? "Найти Windows-приложение"
+                    : "Найти приложение, файл или настройку"
                 ignoreUpDownKeys: true
                 ignoreTabKeys: true
                 keyForwardTargets: [root]
 
                 onTextChanged: {
+                    const trimmed = text.trim();
+                    if (trimmed.length > 0 && controller.searchMode === "apps") {
+                        controller.appSourceFilter = "all";
+                        controller.setMode("all", true);
+                    } else if (trimmed.length === 0 && controller.searchMode === "all") {
+                        controller.setMode("apps", true);
+                    }
                     controller.setSearchQuery(text);
                     if (actionPanel.expanded) {
                         actionPanel.hide();
@@ -593,9 +606,44 @@ FocusScope {
                     return root.parentModal.isClosing ? 0 : 1;
                 }
 
+                Row {
+                    id: applicationFilterBar
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    height: visible ? 36 : 0
+                    visible: controller.searchMode === "apps" || controller.searchMode === "windows"
+                    spacing: Theme.spacingXXS
+
+                    Repeater {
+                        model: [
+                            {"label": "Все", "value": "all"},
+                            {"label": "Linux", "value": "linux"},
+                            {"label": "Windows", "value": "windows"}
+                        ]
+
+                        DankButton {
+                            required property var modelData
+                            text: modelData.label
+                            backgroundColor: (modelData.value === "windows"
+                                ? controller.searchMode === "windows"
+                                : controller.searchMode === "apps" && controller.appSourceFilter === modelData.value)
+                                ? Theme.primary : Theme.surfaceContainerHighest
+                            textColor: (modelData.value === "windows"
+                                ? controller.searchMode === "windows"
+                                : controller.searchMode === "apps" && controller.appSourceFilter === modelData.value)
+                                ? Theme.primaryText : Theme.surfaceText
+                            onClicked: root.selectApplicationSection(modelData.value)
+                        }
+                    }
+                }
+
                 ResultsList {
                     id: resultsList
-                    anchors.fill: parent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: applicationFilterBar.bottom
+                    anchors.bottom: parent.bottom
                     visible: !root.specialMode
                     controller: root.controller
                     leadingSectionHeaderAtBottom: contentHolder.inverted
@@ -611,7 +659,10 @@ FocusScope {
 
                 SoftwareCatalogView {
                     id: softwareCatalogView
-                    anchors.fill: parent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
                     visible: root.softwareMode
                     focus: visible
                     mode: SoftwareService.section
@@ -621,7 +672,10 @@ FocusScope {
 
                 WindowsAppsView {
                     id: windowsAppsView
-                    anchors.fill: parent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: applicationFilterBar.bottom
+                    anchors.bottom: parent.bottom
                     visible: root.windowsMode
                     focus: visible
                     query: controller.searchQuery

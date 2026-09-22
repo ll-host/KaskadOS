@@ -14,8 +14,9 @@ Item {
     id: root
 
     property string searchQuery: ""
-    property string searchMode: "all"
-    property string previousSearchMode: "all"
+    property string searchMode: "apps"
+    property string previousSearchMode: "apps"
+    property string appSourceFilter: "all"
     property bool autoSwitchedToFiles: false
     property bool isFileSearching: false
     property var sections: []
@@ -69,6 +70,11 @@ Item {
             appFolderId = allAppsFolderId;
             appFolders = [];
         }
+    }
+
+    onAppSourceFilterChanged: {
+        if (active && searchMode === "apps")
+            performSearch();
     }
 
     Connections {
@@ -407,7 +413,7 @@ Item {
     }
 
     function cycleMode(reverse = false) {
-        var modes = ["all", "apps", "store", "windows"];
+        var modes = ["apps", "store"];
         var currentIndex = modes.indexOf(searchMode);
         if (!reverse)
             var nextIndex = (currentIndex + 1) % modes.length;
@@ -418,8 +424,9 @@ Item {
 
     function reset() {
         searchQuery = "";
-        searchMode = "all";
-        previousSearchMode = "all";
+        searchMode = "apps";
+        previousSearchMode = "apps";
+        appSourceFilter = "all";
         autoSwitchedToFiles = false;
         isFileSearching = false;
         fileSearchType = "all";
@@ -739,7 +746,7 @@ Item {
         if (searchMode === "apps") {
             var isFolderFiltered = appFolderId !== allAppsFolderId;
             var cachedSections = AppSearchService.getCachedDefaultSections();
-            if (cachedSections && !searchQuery && !isFolderFiltered) {
+            if (cachedSections && !searchQuery && !isFolderFiltered && appSourceFilter === "all") {
                 var modeCache = _getCachedModeData("apps");
                 if (modeCache) {
                     _applyHighlights(modeCache.sections, "");
@@ -1014,7 +1021,10 @@ Item {
         var items = [];
 
         for (var i = 0; i < apps.length; i++) {
-            items.push(getOrTransformApp(apps[i]));
+            var item = getOrTransformApp(apps[i]);
+            if (appSourceFilter === "linux" && item.source === "windows")
+                continue;
+            items.push(item);
         }
 
         var coreApps = AppSearchService.getCoreApps(query);

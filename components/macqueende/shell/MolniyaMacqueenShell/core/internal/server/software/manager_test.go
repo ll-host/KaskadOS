@@ -3,6 +3,7 @@ package software
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,6 +36,34 @@ func TestStageFromLine(t *testing.T) {
 	} {
 		if got := stageFromLine(line); got != want {
 			t.Fatalf("stageFromLine(%q) = %q, want %q", line, got, want)
+		}
+	}
+}
+
+func TestCleanTerminalLine(t *testing.T) {
+	line := "\x1b[1;32m chromium 37%\x1b[0m\r"
+	if got := cleanTerminalLine(line); got != "chromium 37%" {
+		t.Fatalf("cleanTerminalLine() = %q", got)
+	}
+}
+
+func TestRunLoggedTerminalExposesCarriageReturnProgress(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var lines []string
+	err := runLoggedTerminal(ctx, func(line string) {
+		line = cleanTerminalLine(line)
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}, "sh", "-c", `printf '\033[32mdownloading chromium 10%%\033[0m\rdownloading chromium 74%%\rdownloading chromium 100%%\n'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{"10%", "74%", "100%"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("terminal progress %s missing from %q", want, joined)
 		}
 	}
 }
