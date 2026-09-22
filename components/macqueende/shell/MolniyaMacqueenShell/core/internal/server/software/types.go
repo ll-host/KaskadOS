@@ -40,11 +40,25 @@ const (
 )
 
 type OperationState struct {
-	Phase       Phase    `json:"phase"`
-	Action      string   `json:"action,omitempty"`
-	Item        *Item    `json:"item,omitempty"`
-	Message     string   `json:"message,omitempty"`
-	StartedUnix int64    `json:"startedUnix,omitempty"`
-	EndedUnix   int64    `json:"endedUnix,omitempty"`
-	RecentLog   []string `json:"recentLog,omitempty"`
+	Phase         Phase       `json:"phase"`
+	ID            string      `json:"id,omitempty"`
+	Action        string      `json:"action,omitempty"`
+	Item          *Item       `json:"item,omitempty"`
+	Message       string      `json:"message,omitempty"`
+	Progress      int         `json:"progress"`
+	ProgressKnown bool        `json:"progressKnown"`
+	StartedUnix   int64       `json:"startedUnix,omitempty"`
+	EndedUnix     int64       `json:"endedUnix,omitempty"`
+	RecentLog     []string    `json:"recentLog,omitempty"`
+	Queue         []QueueItem `json:"queue"`
+	Completed     int         `json:"completed"`
+	Failed        int         `json:"failed"`
+	Total         int         `json:"total"`
+}
+
+type QueueItem struct {
+	ID       string `json:"id"`
+	Action   string `json:"action"`
+	Item     Item   `json:"item"`
+	Position int    `json:"position"`
 }

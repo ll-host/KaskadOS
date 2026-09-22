@@ -13,6 +13,7 @@ Singleton {
     property bool searching: false
     property string query: ""
     property string sourceFilter: "all"
+    property string section: "store"
     property var searchResults: []
     property string searchProblem: ""
     property var installedItems: []
@@ -20,8 +21,12 @@ Singleton {
     property var operation: ({"phase": "idle"})
     property bool loadingInstalled: false
     property bool _completionHandled: false
+    property var _submittedKeys: ({})
 
     readonly property bool operationRunning: operation?.phase === "preparing" || operation?.phase === "running"
+    readonly property bool operationBusy: operationRunning || (operation?.queue?.length || 0) > 0
+    readonly property int queuedCount: operation?.queue?.length || 0
+    readonly property int remainingCount: Math.max(0, (operation?.total || 0) - (operation?.completed || 0))
 
     Connections {
         target: DMSService
@@ -41,7 +46,7 @@ Singleton {
     Timer {
         interval: 800
         repeat: true
-        running: root.operationRunning
+        running: root.operationBusy
         onTriggered: root.refreshOperation()
     }
 
@@ -141,38 +146,47 @@ Singleton {
     }
 
     function install(item) {
-        if (!available || !item || operationRunning)
+        if (!available || !item || itemOperationState(item) !== "idle")
             return;
         _completionHandled = false;
+        _rememberSubmitted(item);
         DMSService.softwareInstall(item, response => {
             if (response?.result) {
                 operation = response.result;
+                _handleCompletion();
+                if ((operation?.queue?.length || 0) > 0)
+                    ToastService.showInfo("Добавлено в очередь: " + (item.name || item.packageName), "", "", "software-queue");
             } else {
+                _forgetSubmitted(item);
                 ToastService.showError(response?.error || "Не удалось начать установку.", "", "", "software-operation");
             }
         });
     }
 
     function remove(item) {
-        if (!available || !item || operationRunning)
+        if (!available || !item || itemOperationState(item) !== "idle")
             return;
         _completionHandled = false;
+        _rememberSubmitted(item);
         DMSService.softwareRemove(item, response => {
             if (response?.result) {
                 operation = response.result;
+                _handleCompletion();
             } else {
+                _forgetSubmitted(item);
                 ToastService.showError(response?.error || "Не удалось начать удаление.", "", "", "software-operation");
             }
         });
     }
 
     function installLocal(path) {
-        if (!available || !path || operationRunning)
+        if (!available || !path)
             return;
         _completionHandled = false;
         DMSService.softwareInstallLocal(path, response => {
             if (response?.result) {
                 operation = response.result;
+                _handleCompletion();
             } else {
                 ToastService.showError(response?.error || "Не удалось открыть пакет.", "", "", "software-operation");
             }
@@ -191,18 +205,73 @@ Singleton {
             if (!response?.result)
                 return;
             operation = response.result;
-            const phase = operation.phase || "idle";
-            if ((phase === "complete" || phase === "error") && !_completionHandled) {
-                _completionHandled = true;
-                if (phase === "complete") {
-                    ToastService.showInfo(operation.message || "Операция завершена.", "", "", "software-operation");
-                    loadInstalled();
-                    if (query.length >= 2)
-                        _performSearch();
-                } else {
-                    ToastService.showError(operation.message || "Операция не завершена.", "Подробности доступны в журнале операции.", "", "software-operation");
-                }
-            }
+            _handleCompletion();
         });
+    }
+
+    function _handleCompletion() {
+        const phase = operation?.phase || "idle";
+        if ((phase !== "complete" && phase !== "error") || _completionHandled)
+            return;
+        _completionHandled = true;
+        _submittedKeys = {};
+        if (phase === "complete") {
+            ToastService.showInfo(operation.message || "Операция завершена.", "", "", "software-operation");
+            loadInstalled();
+            if (query.length >= 2)
+                _performSearch();
+        } else {
+            ToastService.showError(operation.message || "Операция не завершена.", "Подробности доступны в журнале операции.", "", "software-operation");
+        }
+    }
+
+    function itemKey(item) {
+        if (!item)
+            return "";
+        return (item.source || "") + ":" + (item.id || item.packageName || "");
+    }
+
+    function itemOperationState(item) {
+        const key = itemKey(item);
+        if (key.length === 0)
+            return "idle";
+        if (operationRunning && itemKey(operation?.item) === key)
+            return "running";
+        const queued = operation?.queue || [];
+        for (let i = 0; i < queued.length; i++) {
+            if (itemKey(queued[i].item) === key)
+                return "queued";
+        }
+        if (_submittedKeys[key])
+            return operationBusy ? "processed" : "requesting";
+        return "idle";
+    }
+
+    function _rememberSubmitted(item) {
+        const key = itemKey(item);
+        if (key.length === 0)
+            return;
+        const next = Object.assign({}, _submittedKeys);
+        next[key] = true;
+        _submittedKeys = next;
+    }
+
+    function _forgetSubmitted(item) {
+        const key = itemKey(item);
+        if (!_submittedKeys[key])
+            return;
+        const next = Object.assign({}, _submittedKeys);
+        delete next[key];
+        _submittedKeys = next;
+    }
+
+    function itemQueuePosition(item) {
+        const key = itemKey(item);
+        const queued = operation?.queue || [];
+        for (let i = 0; i < queued.length; i++) {
+            if (itemKey(queued[i].item) === key)
+                return queued[i].position || (i + 1);
+        }
+        return 0;
     }
 }

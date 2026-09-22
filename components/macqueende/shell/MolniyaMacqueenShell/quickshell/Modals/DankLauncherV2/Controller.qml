@@ -385,6 +385,10 @@ Item {
     function setMode(mode, isAutoSwitch, fileTypeOverride, notPersist) {
         if (mode === "files")
             mode = "all";
+        if (mode === "installed") {
+            SoftwareService.section = "installed";
+            mode = "store";
+        }
         if (searchMode === mode)
             return;
         autoSwitchedToFiles = false;
@@ -403,7 +407,7 @@ Item {
     }
 
     function cycleMode(reverse = false) {
-        var modes = ["all", "apps", "store", "installed", "windows"];
+        var modes = ["all", "apps", "store", "windows"];
         var currentIndex = modes.indexOf(searchMode);
         if (!reverse)
             var nextIndex = (currentIndex + 1) % modes.length;

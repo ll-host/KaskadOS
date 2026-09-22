@@ -379,23 +379,18 @@ FocusScope {
                     model: [
                         {
                             id: "all",
-                            label: I18n.tr("All"),
+                            label: "Поиск",
                             icon: "search"
                         },
                         {
                             id: "apps",
-                            label: I18n.tr("Apps"),
+                            label: "Приложения",
                             icon: "apps"
                         },
                         {
                             id: "store",
-                            label: "Каталог",
+                            label: "Программы",
                             icon: "storefront"
-                        },
-                        {
-                            id: "installed",
-                            label: "Установлено",
-                            icon: "inventory_2"
                         },
                         {
                             id: "windows",
@@ -427,7 +422,7 @@ FocusScope {
 
                             StyledText {
                                 anchors.verticalCenter: parent.verticalCenter
-                                visible: footerBar.width >= 920 || controller.searchMode === modelData.id
+                                visible: true
                                 text: modelData.label
                                 font.pixelSize: Theme.fontSizeSmall
                                 color: controller.searchMode === modelData.id ? Theme.buttonText : Theme.surfaceText
@@ -619,7 +614,7 @@ FocusScope {
                     anchors.fill: parent
                     visible: root.softwareMode
                     focus: visible
-                    mode: controller.searchMode
+                    mode: SoftwareService.section
                     query: controller.searchQuery
                     onLocalPackageRequested: localPackageBrowser.open()
                 }

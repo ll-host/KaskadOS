@@ -482,7 +482,7 @@ FocusScope {
             anchors.margins: Theme.spacingS
             visible: root.softwareMode
             focus: visible
-            mode: searchController.searchMode
+            mode: SoftwareService.section
             query: searchInput.text
             onLocalPackageRequested: localPackageBrowser.open()
         }
@@ -500,20 +500,16 @@ FocusScope {
 
     readonly property var _categoryModel: [
         {
-            "label": I18n.tr("All"),
+            "label": "Поиск",
             "mode": "all"
         },
         {
-            "label": I18n.tr("Apps"),
+            "label": "Приложения",
             "mode": "apps"
         },
         {
-            "label": "Каталог",
+            "label": "Программы",
             "mode": "store"
-        },
-        {
-            "label": "Установлено",
-            "mode": "installed"
         },
         {
             "label": "Windows",

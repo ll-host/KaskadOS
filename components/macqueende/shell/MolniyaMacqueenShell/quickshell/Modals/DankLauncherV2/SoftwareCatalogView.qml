@@ -20,12 +20,17 @@ FocusScope {
     ]
     signal localPackageRequested
 
+    Component.onCompleted: {
+        if (mode === "installed")
+            SoftwareService.loadInstalled();
+    }
+
     ConfirmModal {
         id: actionConfirm
     }
 
     function requestAction(item) {
-        if (!item || SoftwareService.operationRunning)
+        if (!item || SoftwareService.itemOperationState(item) !== "idle")
             return;
         if (item.installed) {
             actionConfirm.showWithOptions({
@@ -106,72 +111,177 @@ FocusScope {
 
         Rectangle {
             width: parent.width
-            height: SoftwareService.operationRunning ? 48 : 0
+            height: SoftwareService.operationBusy ? 88 : 0
             visible: height > 0
             radius: Theme.cornerRadius
             color: Theme.primaryContainer
             clip: true
 
-            Row {
+            Column {
                 anchors.fill: parent
                 anchors.margins: Theme.spacingS
-                spacing: Theme.spacingS
+                spacing: 5
 
-                DankIcon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: SoftwareService.operation?.action === "remove" ? "delete" : "download"
-                    size: 20
-                    color: Theme.onPrimaryContainer
+                Row {
+                    width: parent.width
+                    spacing: Theme.spacingS
+
+                    DankIcon {
+                        id: operationIcon
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: SoftwareService.operation?.action === "remove" ? "delete" : "progress_activity"
+                        size: 20
+                        color: Theme.onPrimaryContainer
+
+                        RotationAnimator on rotation {
+                            from: 0
+                            to: 360
+                            duration: 1200
+                            loops: Animation.Infinite
+                            running: SoftwareService.operationRunning
+                        }
+                    }
+
+                    Column {
+                        width: parent.width - cancelButton.width - operationIcon.width - Theme.spacingS * 2
+                        spacing: 1
+
+                        StyledText {
+                            width: parent.width
+                            text: SoftwareService.operation?.item?.name || SoftwareService.operation?.item?.packageName || "Подготовка операции"
+                            color: Theme.onPrimaryContainer
+                            font.pixelSize: Theme.fontSizeMedium
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                        }
+
+                        StyledText {
+                            width: parent.width
+                            text: (SoftwareService.operation?.message || "Выполняется")
+                                + (SoftwareService.operation?.total > 0
+                                   ? " · " + Math.min(SoftwareService.operation.completed + 1, SoftwareService.operation.total)
+                                     + " из " + SoftwareService.operation.total
+                                     + " · осталось: " + SoftwareService.remainingCount
+                                   : "")
+                            color: Theme.withAlpha(Theme.onPrimaryContainer, 0.78)
+                            font.pixelSize: Theme.fontSizeSmall
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    DankActionButton {
+                        id: cancelButton
+                        anchors.verticalCenter: parent.verticalCenter
+                        buttonSize: 32
+                        iconName: "close"
+                        iconColor: Theme.onPrimaryContainer
+                        backgroundColor: Theme.withAlpha(Theme.onPrimaryContainer, 0.08)
+                        tooltipText: "Отменить текущую операцию"
+                        onClicked: SoftwareService.cancel()
+                    }
                 }
 
-                StyledText {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - cancelButton.width - 36
-                    text: (SoftwareService.operation?.message || "Выполняется операция")
-                        + (SoftwareService.operation?.item?.name ? ": " + SoftwareService.operation.item.name : "")
-                    color: Theme.onPrimaryContainer
-                    font.pixelSize: Theme.fontSizeSmall
-                    elide: Text.ElideRight
-                }
+                Row {
+                    width: parent.width
+                    spacing: Theme.spacingS
 
-                DankActionButton {
-                    id: cancelButton
-                    anchors.verticalCenter: parent.verticalCenter
-                    buttonSize: 32
-                    iconName: "close"
-                    iconColor: Theme.onPrimaryContainer
-                    backgroundColor: Theme.withAlpha(Theme.onPrimaryContainer, 0.08)
-                    tooltipText: "Отменить"
-                    onClicked: SoftwareService.cancel()
+                    M3WaveProgress {
+                        width: parent.width - progressPercent.width - Theme.spacingS
+                        height: 14
+                        value: SoftwareService.operation?.progressKnown ? SoftwareService.operation.progress / 100 : 0.45
+                        actualValue: value
+                        isPlaying: SoftwareService.operationRunning
+                        amp: 1.1
+                        lineWidth: 2
+                        wavelength: 18
+                    }
+
+                    StyledText {
+                        id: progressPercent
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: SoftwareService.operation?.progressKnown
+                            ? SoftwareService.operation.progress + "%"
+                            : (SoftwareService.operation?.completed || 0) + "/" + (SoftwareService.operation?.total || 1)
+                        color: Theme.onPrimaryContainer
+                        font.pixelSize: Theme.fontSizeSmall
+                        font.weight: Font.Medium
+                    }
                 }
             }
         }
 
         Row {
             width: parent.width
-            height: 34
+            height: 36
             spacing: Theme.spacingS
 
-            StyledText {
+            Row {
+                id: sectionTabs
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - localPackageButton.width - Theme.spacingS
-                text: root.mode === "installed"
-                    ? (SoftwareService.sourceFilter === "all"
-                       ? "Все установленные пакеты, включая терминальные"
-                       : "Установленные пакеты · " + SoftwareService.sourceFilterLabel(SoftwareService.sourceFilter))
-                    : (root.query.trim().length < 2
-                       ? "Введите минимум два символа для поиска"
-                       : (SoftwareService.searching
-                          ? "Поиск · " + SoftwareService.sourceFilterLabel(SoftwareService.sourceFilter) + "…"
-                          : "Найдено: " + root.visibleItems.length))
-                font.pixelSize: Theme.fontSizeSmall
-                color: Theme.surfaceVariantText
-                elide: Text.ElideRight
+                spacing: Theme.spacingXXS
+
+                Repeater {
+                    model: [
+                        {"label": "Каталог", "value": "store", "icon": "storefront"},
+                        {"label": "Установленные", "value": "installed", "icon": "inventory_2"}
+                    ]
+
+                    DankButton {
+                        required property var modelData
+                        text: modelData.label
+                        iconName: modelData.icon
+                        backgroundColor: root.mode === modelData.value ? Theme.primary : Theme.surfaceContainerHighest
+                        textColor: root.mode === modelData.value ? Theme.primaryText : Theme.surfaceText
+                        onClicked: {
+                            SoftwareService.section = modelData.value;
+                        }
+                    }
+                }
+            }
+
+            Item {
+                width: Math.max(0, parent.width - sectionTabs.width
+                    - (localPackageButton.visible ? localPackageButton.width : 0)
+                    - resultStatus.width - Theme.spacingS * 3)
+                height: 1
+            }
+
+            Row {
+                id: resultStatus
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.spacingXS
+
+                DankIcon {
+                    id: searchSpinner
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: SoftwareService.searching || (root.mode === "installed" && SoftwareService.loadingInstalled)
+                    name: "progress_activity"
+                    size: 17
+                    color: Theme.primary
+
+                    RotationAnimator on rotation {
+                        from: 0
+                        to: 360
+                        duration: 900
+                        loops: Animation.Infinite
+                        running: searchSpinner.visible
+                    }
+                }
+
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: SoftwareService.searching ? "Ищем…"
+                        : root.mode === "installed" && SoftwareService.loadingInstalled ? "Загружаем…"
+                        : root.query.trim().length >= 2 || root.mode === "installed" ? root.visibleItems.length + " шт." : ""
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.surfaceVariantText
+                }
             }
 
             DankButton {
                 id: localPackageButton
                 anchors.verticalCenter: parent.verticalCenter
+                visible: root.mode === "store"
                 text: "Установить файл"
                 iconName: "package_2"
                 backgroundColor: Theme.surfaceContainerHighest
@@ -300,15 +410,62 @@ FocusScope {
                     anchors.rightMargin: Theme.spacingM
                     anchors.verticalCenter: parent.verticalCenter
                     buttonSize: 36
-                    iconName: softwareItem.modelData.installed ? "delete" : "download"
-                    iconColor: softwareItem.modelData.installed ? Theme.error : Theme.onPrimary
-                    backgroundColor: softwareItem.modelData.installed
+                    readonly property string operationState: SoftwareService.itemOperationState(softwareItem.modelData)
+                    iconName: operationState === "running" ? "progress_activity"
+                        : operationState === "requesting" ? "hourglass_top"
+                        : operationState === "queued" ? "schedule"
+                        : operationState === "processed" ? "check"
+                        : softwareItem.modelData.installed ? "delete" : "download"
+                    iconColor: operationState === "idle" && softwareItem.modelData.installed ? Theme.error : Theme.onPrimary
+                    backgroundColor: operationState === "idle" && softwareItem.modelData.installed
                         ? Theme.withAlpha(Theme.error, 0.1) : Theme.primary
-                    enabled: !SoftwareService.operationRunning
-                    tooltipText: softwareItem.modelData.installed ? "Удалить" : "Установить"
+                    enabled: operationState === "idle"
+                    tooltipText: operationState === "running" ? "Выполняется"
+                        : operationState === "requesting" ? "Добавляем в очередь"
+                        : operationState === "queued" ? "В очереди · позиция " + SoftwareService.itemQueuePosition(softwareItem.modelData)
+                        : operationState === "processed" ? "Операция обработана"
+                        : softwareItem.modelData.installed ? "Удалить" : "Добавить в очередь установки"
                     onClicked: {
                         root.selectedIndex = softwareItem.index;
                         root.activateSelected();
+                    }
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                visible: (SoftwareService.searching || (root.mode === "installed" && SoftwareService.loadingInstalled))
+                    && root.visibleItems.length === 0
+                color: Theme.withAlpha(Theme.surface, 0.88)
+                radius: Theme.cornerRadius
+                z: 10
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: Theme.spacingM
+
+                    DankIcon {
+                        id: emptySearchSpinner
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        name: "progress_activity"
+                        size: 34
+                        color: Theme.primary
+
+                        RotationAnimator on rotation {
+                            from: 0
+                            to: 360
+                            duration: 900
+                            loops: Animation.Infinite
+                            running: emptySearchSpinner.visible
+                        }
+                    }
+
+                    StyledText {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: root.mode === "installed" ? "Загружаем установленные пакеты"
+                            : "Ищем пакеты в " + SoftwareService.sourceFilterLabel(SoftwareService.sourceFilter)
+                        font.pixelSize: Theme.fontSizeMedium
+                        color: Theme.surfaceVariantText
                     }
                 }
             }

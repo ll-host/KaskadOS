@@ -11,8 +11,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -20,12 +22,25 @@ import (
 var packageNamePattern = regexp.MustCompile(`^[A-Za-z0-9@._+:-]+$`)
 
 type Manager struct {
-	mu      sync.RWMutex
-	catalog *Catalog
-	state   OperationState
-	cancel  context.CancelFunc
-	dataDir string
-	sources map[string]Source
+	mu              sync.RWMutex
+	catalog         *Catalog
+	state           OperationState
+	cancel          context.CancelFunc
+	queue           []queuedOperation
+	workerRunning   bool
+	nextOperationID atomic.Uint64
+	batchCompleted  int
+	batchFailed     int
+	batchTotal      int
+	dataDir         string
+	sources         map[string]Source
+}
+
+type queuedOperation struct {
+	id     string
+	action string
+	item   Item
+	run    func(context.Context, func(string)) error
 }
 
 func NewManager() *Manager {
@@ -198,46 +213,122 @@ func (m *Manager) setSource(name string, source Source) {
 }
 
 func (m *Manager) start(action string, item Item, operation func(context.Context, func(string)) error) error {
-	m.mu.Lock()
-	if m.state.Phase == PhasePreparing || m.state.Phase == PhaseRunning {
-		m.mu.Unlock()
-		return errors.New("другая операция с приложениями уже выполняется")
+	job := queuedOperation{
+		id:     strconv.FormatUint(m.nextOperationID.Add(1), 10),
+		action: action,
+		item:   item,
+		run:    operation,
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	m.cancel = cancel
-	m.state = OperationState{Phase: PhasePreparing, Action: action, Item: &item, Message: "Подготовка", StartedUnix: time.Now().Unix(), RecentLog: []string{}}
+	m.mu.Lock()
+	if !m.workerRunning {
+		m.batchCompleted = 0
+		m.batchFailed = 0
+		m.batchTotal = 0
+	}
+	m.queue = append(m.queue, job)
+	m.batchTotal++
+	startWorker := !m.workerRunning
+	if startWorker {
+		m.workerRunning = true
+		item := job.item
+		m.state = OperationState{
+			Phase: PhasePreparing, ID: job.id, Action: job.action, Item: &item,
+			Message: "Подготовка", StartedUnix: time.Now().Unix(), RecentLog: []string{},
+		}
+	}
+	m.updateQueueStateLocked()
 	m.mu.Unlock()
+	if startWorker {
+		go m.runQueue()
+	}
+	return nil
+}
 
-	go func() {
-		m.setPhase(PhaseRunning, operationLabel(action))
-		err := operation(ctx, m.appendLog)
-		if err != nil {
-			m.appendLog(err.Error())
-			message := "Операция не завершена"
-			if errors.Is(ctx.Err(), context.Canceled) {
-				message = "Операция отменена"
+func (m *Manager) runQueue() {
+	for {
+		m.mu.Lock()
+		if len(m.queue) == 0 {
+			m.workerRunning = false
+			m.cancel = nil
+			m.state.Queue = []QueueItem{}
+			m.state.Completed = m.batchCompleted
+			m.state.Failed = m.batchFailed
+			m.state.Total = m.batchTotal
+			if m.batchFailed > 0 {
+				m.state.Phase = PhaseError
+				m.state.Message = fmt.Sprintf("Завершено с ошибками: %d из %d", m.batchFailed, m.batchTotal)
+			} else {
+				m.state.Phase = PhaseComplete
+				m.state.Message = batchSuccessLabel(m.batchTotal)
 			}
-			m.finish(PhaseError, message)
+			m.state.EndedUnix = time.Now().Unix()
+			m.mu.Unlock()
 			return
 		}
-		m.finish(PhaseComplete, successLabel(action))
-	}()
-	return nil
+
+		job := m.queue[0]
+		m.queue = m.queue[1:]
+		ctx, cancel := context.WithCancel(context.Background())
+		m.cancel = cancel
+		item := job.item
+		m.state = OperationState{
+			Phase: PhasePreparing, ID: job.id, Action: job.action, Item: &item,
+			Message: "Подготовка", StartedUnix: time.Now().Unix(), RecentLog: []string{},
+			Completed: m.batchCompleted, Failed: m.batchFailed, Total: m.batchTotal,
+		}
+		m.updateQueueStateLocked()
+		m.mu.Unlock()
+
+		m.setPhase(PhaseRunning, operationLabel(job.action))
+		err := job.run(ctx, m.appendLog)
+		if err != nil {
+			m.appendLog(err.Error())
+		}
+
+		m.mu.Lock()
+		m.batchCompleted++
+		if err != nil {
+			m.batchFailed++
+			m.state.Phase = PhaseError
+			m.state.Message = "Операция не завершена"
+			if errors.Is(ctx.Err(), context.Canceled) {
+				m.state.Message = "Операция отменена"
+			}
+		} else {
+			m.state.Phase = PhaseComplete
+			m.state.Message = successLabel(job.action)
+			m.state.Progress = 100
+			m.state.ProgressKnown = true
+		}
+		m.state.Completed = m.batchCompleted
+		m.state.Failed = m.batchFailed
+		m.state.EndedUnix = time.Now().Unix()
+		m.cancel = nil
+		m.mu.Unlock()
+	}
+}
+
+func (m *Manager) updateQueueStateLocked() {
+	m.state.Queue = make([]QueueItem, 0, len(m.queue))
+	position := 0
+	for _, job := range m.queue {
+		if job.id == m.state.ID {
+			continue
+		}
+		position++
+		m.state.Queue = append(m.state.Queue, QueueItem{
+			ID: job.id, Action: job.action, Item: job.item, Position: position,
+		})
+	}
+	m.state.Completed = m.batchCompleted
+	m.state.Failed = m.batchFailed
+	m.state.Total = m.batchTotal
 }
 
 func (m *Manager) setPhase(phase Phase, message string) {
 	m.mu.Lock()
 	m.state.Phase = phase
 	m.state.Message = message
-	m.mu.Unlock()
-}
-
-func (m *Manager) finish(phase Phase, message string) {
-	m.mu.Lock()
-	m.state.Phase = phase
-	m.state.Message = message
-	m.state.EndedUnix = time.Now().Unix()
-	m.cancel = nil
 	m.mu.Unlock()
 }
 
@@ -251,6 +342,13 @@ func (m *Manager) appendLog(line string) {
 	}
 	m.mu.Lock()
 	m.state.RecentLog = append(m.state.RecentLog, line)
+	if progress, ok := progressFromLine(line); ok {
+		m.state.Progress = progress
+		m.state.ProgressKnown = true
+	}
+	if message := stageFromLine(line); message != "" {
+		m.state.Message = message
+	}
 	if len(m.state.RecentLog) > 80 {
 		m.state.RecentLog = append([]string(nil), m.state.RecentLog[len(m.state.RecentLog)-80:]...)
 	}
@@ -423,6 +521,7 @@ func runLoggedInDir(ctx context.Context, dir string, logf func(string), argv ...
 		go func(scanner *bufio.Scanner) {
 			defer wg.Done()
 			scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+			scanner.Split(scanLinesAndCarriageReturns)
 			for scanner.Scan() {
 				logf(scanner.Text())
 			}
@@ -430,6 +529,22 @@ func runLoggedInDir(ctx context.Context, dir string, logf func(string), argv ...
 	}
 	wg.Wait()
 	return cmd.Wait()
+}
+
+func scanLinesAndCarriageReturns(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	for index, value := range data {
+		if value == '\n' || value == '\r' {
+			advance = index + 1
+			if value == '\r' && advance < len(data) && data[advance] == '\n' {
+				advance++
+			}
+			return advance, data[:index], nil
+		}
+	}
+	if atEOF && len(data) > 0 {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
 }
 
 func outputInDir(ctx context.Context, dir string, argv ...string) (string, error) {
@@ -528,7 +643,45 @@ func cloneState(state OperationState) OperationState {
 		item := *state.Item
 		state.Item = &item
 	}
+	state.Queue = append([]QueueItem(nil), state.Queue...)
 	return state
+}
+
+var percentPattern = regexp.MustCompile(`(?:^|[^0-9])(100|[0-9]{1,2})%`)
+
+func progressFromLine(line string) (int, bool) {
+	matches := percentPattern.FindAllStringSubmatch(line, -1)
+	if len(matches) == 0 {
+		return 0, false
+	}
+	value, err := strconv.Atoi(matches[len(matches)-1][1])
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}
+
+func stageFromLine(line string) string {
+	lower := strings.ToLower(line)
+	switch {
+	case strings.Contains(lower, "downloading") || strings.Contains(lower, "загрузка"):
+		return "Загрузка пакета"
+	case strings.Contains(lower, "installing") || strings.Contains(lower, "установка"):
+		return "Установка пакета"
+	case strings.Contains(lower, "checking") || strings.Contains(lower, "проверка"):
+		return "Проверка пакета"
+	case strings.Contains(lower, "building") || strings.Contains(lower, "сборка"):
+		return "Сборка пакета"
+	default:
+		return ""
+	}
+}
+
+func batchSuccessLabel(total int) string {
+	if total <= 1 {
+		return "Операция завершена"
+	}
+	return fmt.Sprintf("Все операции завершены: %d", total)
 }
 
 func operationLabel(action string) string {
