@@ -60,7 +60,7 @@ DankPopout {
             return 540;
         if (SystemUpdateService.hasError)
             return 420;
-        return 350;
+        return 310;
     }
     triggerWidth: 55
     positioning: ""
@@ -91,18 +91,6 @@ DankPopout {
                         updaterPanel.nowUnix = Math.floor(Date.now() / 1000);
                     }
                 }
-            }
-
-            function distroLabel() {
-                const pretty = (SystemUpdateService.distributionPretty || "").trim();
-                if (pretty) {
-                    return pretty.split(/\s+/)[0];
-                }
-                const id = (SystemUpdateService.distribution || "").trim();
-                if (id) {
-                    return id.charAt(0).toUpperCase() + id.slice(1);
-                }
-                return "Система";
             }
 
             function lastCheckedText() {
@@ -254,28 +242,15 @@ DankPopout {
             }
 
             StyledText {
-                id: backendsRow
+                id: checkTimeRow
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: header.bottom
                 anchors.leftMargin: Theme.spacingL
                 anchors.rightMargin: Theme.spacingL
                 anchors.topMargin: Theme.spacingS
-                visible: SystemUpdateService.backends.length > 0 && !SystemUpdateService.isUpgrading
-                text: {
-                    const kinds = [updaterPanel.distroLabel()];
-                    for (const b of SystemUpdateService.backends || []) {
-                        const label = b.repo === "flatpak" ? "Flatpak" : b.repo === "aur" ? "AUR" : "";
-                        if (!label)
-                            continue;
-                        if (!kinds.includes(label)) {
-                            kinds.push(label);
-                        }
-                    }
-                    const checked = updaterPanel.lastCheckedText();
-                    const base = `Источники: ${kinds.join(" · ")}`;
-                    return checked ? `${base} · ${checked}` : base;
-                }
+                visible: SystemUpdateService.lastCheckUnix > 0 && !SystemUpdateService.isUpgrading
+                text: updaterPanel.lastCheckedText()
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.surfaceVariantText
                 wrapMode: Text.WordWrap
@@ -289,14 +264,14 @@ DankPopout {
                 anchors.bottom: parent.bottom
                 anchors.leftMargin: Theme.spacingL
                 anchors.rightMargin: Theme.spacingL
-                anchors.bottomMargin: Theme.spacingL
-                spacing: Theme.spacingM
-                height: 44
+                anchors.bottomMargin: primaryButton.visible ? Theme.spacingL : 0
+                height: primaryButton.visible ? 44 : 0
+                visible: height > 0
 
                 Rectangle {
                     id: primaryButton
                     visible: SystemUpdateService.isUpgrading || SystemUpdateService.updateCount > 0
-                    width: visible ? parent.width - closeButton.width - Theme.spacingM : 0
+                    width: parent.width
                     height: parent.height
                     radius: Theme.cornerRadius
                     color: SystemUpdateService.isUpgrading
@@ -348,45 +323,13 @@ DankPopout {
                     }
                 }
 
-                Rectangle {
-                    id: closeButton
-                    width: primaryButton.visible ? 104 : parent.width
-                    height: parent.height
-                    radius: Theme.cornerRadius
-                    color: closeMouseArea.containsMouse ? Theme.surfaceContainerHighest : Theme.surfaceContainerHigh
-                    border.width: 1
-                    border.color: Theme.outlineLight
-
-                    StyledText {
-                        anchors.centerIn: parent
-                        text: primaryButton.visible ? "Позже" : "Закрыть"
-                        font.pixelSize: Theme.fontSizeMedium
-                        font.weight: Font.Medium
-                        color: Theme.surfaceText
-                    }
-
-                    MouseArea {
-                        id: closeMouseArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: systemUpdatePopout.close()
-                    }
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Theme.shortDuration
-                            easing.type: Theme.standardEasing
-                        }
-                    }
-                }
             }
 
             Rectangle {
                 id: bodyArea
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: backendsRow.visible ? backendsRow.bottom : header.bottom
+                anchors.top: checkTimeRow.visible ? checkTimeRow.bottom : header.bottom
                 anchors.bottom: buttonsRow.top
                 anchors.leftMargin: Theme.spacingL
                 anchors.rightMargin: Theme.spacingL

@@ -611,7 +611,7 @@ FocusScope {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    height: visible ? 36 : 0
+                    height: visible ? 48 : 0
                     visible: controller.searchMode === "apps" || controller.searchMode === "windows"
                     spacing: Theme.spacingXXS
 
