@@ -39,12 +39,6 @@ Item {
                 "icon": "notifications"
             },
             {
-                "id": "wallpaper",
-                "name": I18n.tr("Wallpaper"),
-                "description": I18n.tr("Desktop background images"),
-                "icon": "wallpaper"
-            },
-            {
                 "id": "osd",
                 "name": I18n.tr("On-screen Displays"),
                 "description": I18n.tr("Volume, brightness, and other system OSDs"),

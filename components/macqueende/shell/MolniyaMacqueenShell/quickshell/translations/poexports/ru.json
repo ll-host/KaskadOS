@@ -1008,7 +1008,7 @@
     "Background Blur": "Размытие фона"
   },
   "Background Color": {
-    "Background Color": ""
+    "Background Color": "Цвет свободных полей"
   },
   "Background Effect": {
     "Background Effect": "Эффект фона"
@@ -1623,7 +1623,7 @@
     "Color for primary action buttons": "Цвет для кнопок основных действий"
   },
   "Color shown for areas not covered by wallpaper": {
-    "Color shown for areas not covered by wallpaper": ""
+    "Color shown for areas not covered by wallpaper": "Цвет областей, которые обои не закрывают"
   },
   "Color temperature for night mode": {
     "Color temperature for night mode": "Цветовая температура для ночного режима"
@@ -2409,7 +2409,7 @@
     "Disabling auto-login on startup...": "Отключение автоматического входа при запуске..."
   },
   "Disc": {
-    "Disc": "Стирание"
+    "Disc": "Круг"
   },
   "Discard": {
     "Discard": "Отменить"
@@ -2907,7 +2907,7 @@
     "Extra Light": "Сверхсветлый"
   },
   "Fade": {
-    "Fade": "Стирание"
+    "Fade": "Плавное затухание"
   },
   "Fade to lock screen": {
     "Fade to lock screen": "Плавный переход к экрану блокировки"
@@ -3228,10 +3228,10 @@
     "Filesystem usage monitoring": "Мониторинг использования файловой системы"
   },
   "Fill": {
-    "Fill": "Плитка вертикально"
+    "Fill": "Заполнить с обрезкой"
   },
   "Fill Mode": {
-    "Fill Mode": ""
+    "Fill Mode": "Масштабирование обоев"
   },
   "Filter": {
     "Filter": "Фильтр"
@@ -3273,7 +3273,7 @@
     "First Time Setup": "Первоначальная настройка"
   },
   "Fit": {
-    "Fit": "Плитка вертикально"
+    "Fit": "Вписать целиком"
   },
   "Flags": {
     "Flags": "Флаги"
@@ -3894,7 +3894,7 @@
     "How the background image is scaled": "Как масштабируется фоновое изображение"
   },
   "How the wallpaper is scaled to fit the screen": {
-    "How the wallpaper is scaled to fit the screen": ""
+    "How the wallpaper is scaled to fit the screen": "Как изображение размещается и масштабируется на экране"
   },
   "Humidity": {
     "Humidity": "Влажность"
@@ -4191,7 +4191,7 @@
     "Invert touchpad scroll direction": "Инвертировать направление прокрутки тачпада"
   },
   "Iris Bloom": {
-    "Iris Bloom": "Стирание"
+    "Iris Bloom": "Раскрытие диафрагмы"
   },
   "Isolate Displays": {
     "Isolate Displays": "Изолировать дисплеи"
@@ -5682,7 +5682,7 @@
     "Package name (e.g., docker)": ""
   },
   "Pad": {
-    "Pad": "Плитка вертикально"
+    "Pad": "По центру без увеличения"
   },
   "Pad Hours": {
     "Pad Hours": "Пад часы"
@@ -5829,7 +5829,7 @@
     "Pinned and running apps with drag-and-drop": "Закреплённые и запущенные приложения с перетаскиванием"
   },
   "Pixelate": {
-    "Pixelate": "Стирание"
+    "Pixelate": "Пикселизация"
   },
   "Place a trash bin at the end of the dock": {
     "Place a trash bin at the end of the dock": "Разместить корзину в конце дока"
@@ -5955,7 +5955,7 @@
     "Port": "Порт"
   },
   "Portal": {
-    "Portal": "Стирание"
+    "Portal": "Портал"
   },
   "Position": {
     "Position": "Позиция"
@@ -6207,7 +6207,7 @@
     "Rainbow": "Яркий"
   },
   "Random": {
-    "Random": "Стирание"
+    "Random": "Случайный"
   },
   "Rate": {
     "Rate": "Частота"
@@ -7476,7 +7476,7 @@
     "Stopping": "Останавливается"
   },
   "Stretch": {
-    "Stretch": "Плитка вертикально"
+    "Stretch": "Растянуть"
   },
   "Stretch widget icons to fill the available bar height": {
     "Stretch widget icons to fill the available bar height": "Растягивать значки виджетов по всей доступной высоте панели"
@@ -7488,7 +7488,7 @@
     "Strict auto-hide": "Строгое автоскрытие"
   },
   "Stripes": {
-    "Stripes": "Стирание"
+    "Stripes": "Полосы"
   },
   "Summary": {
     "Summary": "Заголовок"
@@ -7524,7 +7524,7 @@
     "Surface Border Outline": ""
   },
   "Surface Container": {
-    "Surface Container": ""
+    "Surface Container": "Фон интерфейса"
   },
   "Surface High": {
     "Surface High": ""
@@ -7830,13 +7830,13 @@
     "Thunderstorm with Hail": "Гроза с градом"
   },
   "Tile": {
-    "Tile": "Плитка вертикально"
+    "Tile": "Мозаика"
   },
   "Tile Horizontally": {
-    "Tile Horizontally": ""
+    "Tile Horizontally": "Повторять по горизонтали"
   },
   "Tile Vertically": {
-    "Tile Vertically": ""
+    "Tile Vertically": "Повторять по вертикали"
   },
   "Tiled": {
     "Tiled": "Плиточный"
@@ -8619,7 +8619,7 @@
     "Which PAM service the lock screen uses to authenticate": ""
   },
   "White": {
-    "White": ""
+    "White": "Белый"
   },
   "Wi-Fi and Ethernet connection": {
     "Wi-Fi and Ethernet connection": "Подключение Wi-Fi и Ethernet"
@@ -8736,7 +8736,7 @@
     "Window Rules": "Правила окон"
   },
   "Wipe": {
-    "Wipe": "Стирание"
+    "Wipe": "Шторка"
   },
   "Working...": {
     "Working...": "Выполнение..."

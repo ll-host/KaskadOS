@@ -15,7 +15,7 @@ Singleton {
     id: root
     readonly property var log: Log.scoped("SettingsData")
 
-    readonly property int settingsConfigVersion: 13
+    readonly property int settingsConfigVersion: 14
 
     enum Position {
         Top,
@@ -2587,10 +2587,12 @@ Singleton {
     }
 
     function getFilteredScreens(componentId) {
-        var prefs = screenPreferences && screenPreferences[componentId] || ["all"];
-        if (componentId === "wallpaper" && Array.isArray(prefs) && prefs.length === 0) {
-            return [];
+        // The built-in wallpaper owns the desktop background on every display.
+        // It must not be disabled through generic per-screen component settings.
+        if (componentId === "wallpaper") {
+            return Quickshell.screens;
         }
+        var prefs = screenPreferences && screenPreferences[componentId] || ["all"];
         if (!prefs || prefs.length === 0 || prefs.includes("all") || (typeof prefs[0] === "string" && prefs[0] === "all")) {
             return Quickshell.screens;
         }

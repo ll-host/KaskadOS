@@ -294,6 +294,9 @@ Item {
 
                     readonly property var fillModes: ["Stretch", "Fit", "Fill", "Scrolling", "Tile", "TileVertically", "TileHorizontally", "Pad"]
                     readonly property var fillModeLabels: [I18n.tr("Stretch", "wallpaper fill mode"), I18n.tr("Fit", "wallpaper fill mode"), I18n.tr("Fill", "wallpaper fill mode"), I18n.tr("Scroll", "wallpaper fill mode"), I18n.tr("Tile", "wallpaper fill mode"), I18n.tr("Tile Vertically", "wallpaper fill mode"), I18n.tr("Tile Horizontally", "wallpaper fill mode"), I18n.tr("Pad", "wallpaper fill mode")]
+                    readonly property string effectiveMode: SessionData.perMonitorWallpaper
+                        ? SessionData.getMonitorWallpaperFillMode(root.selectedMonitorName)
+                        : SettingsData.wallpaperFillMode
 
                     tab: "wallpaper"
                     tags: ["background", "fill", "fit", "stretch", "tile", "scale"]
@@ -319,8 +322,7 @@ Item {
                         target: fillModeRow
                         property: "currentValue"
                         value: {
-                            const mode = SessionData.perMonitorWallpaper ? SessionData.getMonitorWallpaperFillMode(root.selectedMonitorName) : SettingsData.wallpaperFillMode;
-                            const idx = fillModeRow.fillModes.indexOf(mode);
+                            const idx = fillModeRow.fillModes.indexOf(fillModeRow.effectiveMode);
                             return idx >= 0 ? fillModeRow.fillModeLabels[idx] : "";
                         }
                     }
@@ -333,27 +335,33 @@ Item {
                     text: I18n.tr("Background Color")
                     description: I18n.tr("Color shown for areas not covered by wallpaper")
                     visible: root.currentWallpaper !== "" && !root.currentWallpaper.startsWith("#")
+                        && ["Fit", "Pad"].includes(fillModeRow.effectiveMode)
                     dropdownWidth: 220
                     options: [
                         {
                             "value": "black",
-                            "label": I18n.tr("Black")
+                            "label": I18n.tr("Black"),
+                            "previewColor": "#000000"
                         },
                         {
                             "value": "white",
-                            "label": I18n.tr("White")
+                            "label": I18n.tr("White"),
+                            "previewColor": "#ffffff"
                         },
                         {
                             "value": "primary",
-                            "label": I18n.tr("Primary")
+                            "label": I18n.tr("Accent Color"),
+                            "previewColor": Theme.primary
                         },
                         {
                             "value": "surface",
-                            "label": I18n.tr("Surface Container")
+                            "label": I18n.tr("Surface Container"),
+                            "previewColor": Theme.surfaceContainer
                         },
                         {
                             "value": "custom",
-                            "label": I18n.tr("Custom")
+                            "label": I18n.tr("Custom Color"),
+                            "previewColor": SettingsData.wallpaperBackgroundCustomColor || "#000000"
                         }
                     ]
                     currentMode: SettingsData.wallpaperBackgroundColorMode
@@ -1133,6 +1141,8 @@ Item {
                 }
 
                 SettingsDropdownRow {
+                    id: transitionEffectRow
+
                     tab: "wallpaper"
                     tags: ["transition", "effect", "animation", "change"]
                     settingKey: "wallpaperTransition"
@@ -1204,7 +1214,7 @@ Item {
                         multiSelect: true
                         model: SessionData.availableWallpaperTransitions.filter(t => t !== "none").map(t => ({
                                     "value": t,
-                                    "label": t.replace(/\b\w/g, c => c.toUpperCase())
+                                    "label": transitionEffectRow.getTransitionLabel(t)
                                 }))
                         selectedValues: SessionData.includedTransitions
 
@@ -1220,36 +1230,6 @@ Item {
 
                             SessionData.includedTransitions = newIncluded;
                         }
-                    }
-                }
-            }
-
-            SettingsCard {
-                tab: "wallpaper"
-                tags: ["external", "disable", "swww", "hyprpaper", "swaybg"]
-                title: I18n.tr("External Wallpaper Management", "wallpaper settings external management")
-                settingKey: "disableWallpaper"
-                iconName: "wallpaper"
-
-                SettingsToggleRow {
-                    tab: "wallpaper"
-                    tags: ["disable", "external", "management"]
-                    settingKey: "disableWallpapers"
-                    text: I18n.tr("Disable Built-in Wallpapers", "wallpaper settings disable toggle")
-                    description: I18n.tr("Use an external wallpaper manager like swww, hyprpaper, or swaybg.", "wallpaper settings disable description")
-                    checked: {
-                        var prefs = SettingsData.screenPreferences?.wallpaper;
-                        if (!prefs)
-                            return false;
-                        if (Array.isArray(prefs) && prefs.length === 0)
-                            return true;
-                        return false;
-                    }
-                    onToggled: checked => {
-                        var prefs = SettingsData.screenPreferences || {};
-                        var newPrefs = Object.assign({}, prefs);
-                        newPrefs.wallpaper = checked ? [] : ["all"];
-                        SettingsData.set("screenPreferences", newPrefs);
                     }
                 }
             }

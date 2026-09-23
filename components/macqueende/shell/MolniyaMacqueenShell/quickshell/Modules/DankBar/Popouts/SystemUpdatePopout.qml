@@ -261,10 +261,10 @@ DankPopout {
                 id: buttonsRow
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.bottom: parent.bottom
+                anchors.top: checkTimeRow.visible ? checkTimeRow.bottom : header.bottom
                 anchors.leftMargin: Theme.spacingL
                 anchors.rightMargin: Theme.spacingL
-                anchors.bottomMargin: primaryButton.visible ? Theme.spacingL : 0
+                anchors.topMargin: primaryButton.visible ? Theme.spacingM : 0
                 height: primaryButton.visible ? 44 : 0
                 visible: height > 0
 
@@ -283,7 +283,7 @@ DankPopout {
                         anchors.centerIn: parent
                         text: SystemUpdateService.isUpgrading
                             ? "Остановить обновление"
-                            : `Установить ${SystemUpdateService.updateCount} ${updaterPanel.updateWord(SystemUpdateService.updateCount)}`
+                            : `Обновить всё (${SystemUpdateService.updateCount})`
                         font.pixelSize: Theme.fontSizeMedium
                         font.weight: Font.DemiBold
                         color: SystemUpdateService.isUpgrading ? Theme.error : Theme.onPrimary
@@ -329,12 +329,12 @@ DankPopout {
                 id: bodyArea
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: checkTimeRow.visible ? checkTimeRow.bottom : header.bottom
-                anchors.bottom: buttonsRow.top
+                anchors.top: buttonsRow.visible ? buttonsRow.bottom : (checkTimeRow.visible ? checkTimeRow.bottom : header.bottom)
+                anchors.bottom: parent.bottom
                 anchors.leftMargin: Theme.spacingL
                 anchors.rightMargin: Theme.spacingL
                 anchors.topMargin: Theme.spacingM
-                anchors.bottomMargin: Theme.spacingM
+                anchors.bottomMargin: Theme.spacingL
                 radius: Theme.cornerRadius
                 color: Theme.surfaceContainerLow
                 border.width: 1

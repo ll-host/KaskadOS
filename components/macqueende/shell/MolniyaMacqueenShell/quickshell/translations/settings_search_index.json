@@ -88,35 +88,6 @@
     "conditionKey": "isNiri"
   },
   {
-    "section": "disableWallpapers",
-    "label": "Disable Built-in Wallpapers",
-    "tabIndex": 0,
-    "category": "Personalization",
-    "keywords": [
-      "appearance",
-      "background",
-      "bg",
-      "built",
-      "custom",
-      "customize",
-      "desktop",
-      "disable",
-      "external",
-      "hyprpaper",
-      "image",
-      "management",
-      "manager",
-      "personal",
-      "personalization",
-      "picture",
-      "swaybg",
-      "swww",
-      "wallpaper",
-      "wallpapers"
-    ],
-    "description": "Use an external wallpaper manager like swww, hyprpaper, or swaybg."
-  },
-  {
     "section": "blurredWallpaperLayer",
     "label": "Duplicate Wallpaper with Blur",
     "tabIndex": 0,
@@ -148,34 +119,6 @@
       "wallpaper"
     ],
     "description": "Enable compositor-targetable blur layer (namespace: dms:blurwallpaper). Requires manual niri configuration."
-  },
-  {
-    "section": "disableWallpaper",
-    "label": "External Wallpaper Management",
-    "tabIndex": 0,
-    "category": "Personalization",
-    "keywords": [
-      "appearance",
-      "background",
-      "bg",
-      "custom",
-      "customize",
-      "desktop",
-      "disable",
-      "external",
-      "hyprpaper",
-      "image",
-      "management",
-      "manager",
-      "personal",
-      "personalization",
-      "picture",
-      "swaybg",
-      "swww",
-      "wallpaper"
-    ],
-    "icon": "wallpaper",
-    "description": "Use an external wallpaper manager like swww, hyprpaper, or swaybg."
   },
   {
     "section": "wallpaperFillMode",

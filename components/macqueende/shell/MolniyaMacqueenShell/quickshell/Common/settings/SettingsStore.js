@@ -294,6 +294,13 @@ function migrateToVersion(obj, targetVersion) {
         settings.configVersion = 13;
     }
 
+    if (currentVersion < 14) {
+        console.info("Migrating settings from version", currentVersion, "to version 14");
+        if (settings.screenPreferences && typeof settings.screenPreferences === "object")
+            delete settings.screenPreferences.wallpaper;
+        settings.configVersion = 14;
+    }
+
     return settings;
 }
 
