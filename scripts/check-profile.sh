@@ -218,6 +218,16 @@ for source_path in \
     || die "в MacqueenDE отсутствует ${source_path}"
 done
 
+for compositor_source in \
+  "${MACQUEENDE_DIR}/compositor" \
+  "${PROJECT_DIR}/components/kaskad-installer-compositor"; do
+  [[ ! -e "${compositor_source}/src/plugins/tileseditor" ]] \
+    || die "в композиторе остался удалённый редактор плиток: ${compositor_source}"
+  if grep -Fq 'add_subdirectory(tileseditor)' "${compositor_source}/src/plugins/CMakeLists.txt"; then
+    die "композитор продолжает собирать удалённый редактор плиток: ${compositor_source}"
+  fi
+done
+
 readonly MACQUEEN_SESSION="${PROFILE_DIR}/airootfs/usr/share/wayland-sessions/macqueende.desktop"
 grep -Fxq 'Exec=/usr/bin/start-macqueende' "${MACQUEEN_SESSION}" \
   || die 'сеанс SDDM не запускает MacqueenDE'
