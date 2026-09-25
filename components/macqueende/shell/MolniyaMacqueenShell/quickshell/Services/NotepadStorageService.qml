@@ -131,7 +131,8 @@ Singleton {
                     isTemporary: true,
                     lastModified: new Date().toISOString(),
                     cursorPosition: 0,
-                    scrollPosition: 0
+                    scrollPosition: 0,
+                    annotations: emptyAnnotations()
                 }
             ];
             root.currentTabIndex = 0;
@@ -158,6 +159,14 @@ Singleton {
                 return tabs[i];
         }
         return null;
+    }
+
+    function tabIndexById(tabId) {
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].id === tabId)
+                return i;
+        }
+        return -1;
     }
 
     function loadTabContent(tabIndex, callback) {
@@ -223,7 +232,8 @@ Singleton {
             isTemporary: true,
             lastModified: new Date().toISOString(),
             cursorPosition: 0,
-            scrollPosition: 0
+            scrollPosition: 0,
+            annotations: emptyAnnotations()
         };
 
         var newTabsBeingCreated = Object.assign({}, tabsBeingCreated);
@@ -255,7 +265,8 @@ Singleton {
             isTemporary: false,
             lastModified: new Date().toISOString(),
             cursorPosition: 0,
-            scrollPosition: 0
+            scrollPosition: 0,
+            annotations: emptyAnnotations()
         };
 
         var newTabs = tabs.slice();
@@ -291,7 +302,8 @@ Singleton {
                     isTemporary: true,
                     lastModified: new Date().toISOString(),
                     cursorPosition: 0,
-                    scrollPosition: 0
+                    scrollPosition: 0,
+                    annotations: emptyAnnotations()
                 };
                 currentTabIndex = 0;
                 tabs = newTabs;
@@ -354,12 +366,6 @@ Singleton {
         var tab = tabs[tabIndex];
         var fileName = userPath.split('/').pop();
 
-        if (tab.isTemporary) {
-            var tempPath = baseDir + "/" + tab.filePath;
-            copyFile(tempPath, userPath);
-            deleteFile(tempPath);
-        }
-
         var newTabs = tabs.slice();
         newTabs[tabIndex] = Object.assign({}, tab, {
             title: fileName,
@@ -369,6 +375,7 @@ Singleton {
         });
         tabs = newTabs;
         saveMetadata();
+        saveDocumentAnnotations(tabIndex, newTabs[tabIndex].annotations || emptyAnnotations());
     }
 
     function renameTab(tabIndex, newTitle) {
@@ -388,6 +395,7 @@ Singleton {
         var dir = tab.filePath.substring(0, tab.filePath.lastIndexOf('/') + 1);
         var newPath = dir + trimmed;
         moveFile(tab.filePath, newPath);
+        moveFile(tab.filePath + ".kaskad-meta.json", newPath + ".kaskad-meta.json");
         updateTabMetadata(tabIndex, {
             title: trimmed,
             filePath: newPath
@@ -409,6 +417,8 @@ Singleton {
         var validTabs = [];
         for (var i = 0; i < tabs.length; i++) {
             var tab = tabs[i];
+            if (!tab.annotations)
+                tab = Object.assign({}, tab, { annotations: emptyAnnotations() });
             validTabs.push(tab);
         }
         tabs = validTabs;
@@ -416,6 +426,95 @@ Singleton {
         if (tabs.length === 0) {
             root.createDefaultTab();
         }
+    }
+
+    function emptyAnnotations() {
+        return {
+            version: 1,
+            colors: [],
+            bookmarks: []
+        };
+    }
+
+    function normalizedAnnotations(value) {
+        return {
+            version: 1,
+            colors: value && Array.isArray(value.colors) ? value.colors : [],
+            bookmarks: value && Array.isArray(value.bookmarks) ? value.bookmarks : []
+        };
+    }
+
+    function documentMetadataPath(tab) {
+        if (!tab || tab.isTemporary || !tab.filePath)
+            return "";
+        return tab.filePath + ".kaskad-meta.json";
+    }
+
+    function loadDocumentAnnotations(tabIndex, callback) {
+        if (tabIndex < 0 || tabIndex >= tabs.length) {
+            callback(emptyAnnotations());
+            return;
+        }
+        const tab = tabs[tabIndex];
+        const metadata = documentMetadataPath(tab);
+        if (!metadata) {
+            callback(tab.annotations || emptyAnnotations());
+            return;
+        }
+        annotationLoaderComponent.createObject(root, {
+            path: metadata,
+            fallback: tab.annotations || emptyAnnotations(),
+            callback: value => callback(normalizedAnnotations(value))
+        });
+    }
+
+    function saveDocumentAnnotations(tabIndex, annotations) {
+        if (tabIndex < 0 || tabIndex >= tabs.length)
+            return;
+        const normalized = normalizedAnnotations(annotations);
+        const tab = tabs[tabIndex];
+        const newTabs = tabs.slice();
+        newTabs[tabIndex] = Object.assign({}, tab, { annotations: normalized });
+        tabs = newTabs;
+        saveMetadata();
+
+        const metadata = documentMetadataPath(newTabs[tabIndex]);
+        if (!metadata)
+            return;
+        if ((normalized.colors || []).length === 0 && (normalized.bookmarks || []).length === 0) {
+            deleteFile(metadata);
+            return;
+        }
+        annotationSaverComponent.createObject(root, {
+            path: metadata,
+            content: JSON.stringify(normalized, null, 2)
+        });
+    }
+
+    function copyImageForDocument(documentPath, sourcePath, callback) {
+        if (!documentPath || !sourcePath) {
+            callback("", false);
+            return;
+        }
+        const slash = documentPath.lastIndexOf('/');
+        const directory = slash >= 0 ? documentPath.substring(0, slash) : ".";
+        const fileName = documentPath.substring(slash + 1);
+        const dot = fileName.lastIndexOf('.');
+        const stem = dot > 0 ? fileName.substring(0, dot) : fileName;
+        const assetsName = stem + ".assets";
+        const assetsDirectory = directory + "/" + assetsName;
+        const sourceName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1).replace(/[\s()]/g, "_");
+        const destinationName = Date.now() + "-" + sourceName;
+        const destination = assetsDirectory + "/" + destinationName;
+        Proc.runCommand("", ["mkdir", "-p", assetsDirectory], (output, exitCode) => {
+            if (exitCode !== 0) {
+                callback("", false);
+                return;
+            }
+            Proc.runCommand("", ["cp", "--", sourcePath, destination], (copyOutput, copyExitCode) => {
+                callback(assetsName + "/" + destinationName, copyExitCode === 0);
+            });
+        });
     }
 
     Component {
@@ -469,6 +568,46 @@ Singleton {
         }
     }
 
+    Component {
+        id: annotationLoaderComponent
+        FileView {
+            property var callback
+            property var fallback
+            blockLoading: true
+            preload: true
+
+            onLoaded: {
+                try {
+                    callback(JSON.parse(text()));
+                } catch (error) {
+                    log.warn("Failed to parse notepad annotations:", error);
+                    callback(fallback);
+                }
+                destroy();
+            }
+
+            onLoadFailed: {
+                callback(fallback);
+                destroy();
+            }
+        }
+    }
+
+    Component {
+        id: annotationSaverComponent
+        FileView {
+            property string content
+            blockWrites: false
+            atomicWrites: true
+            Component.onCompleted: setText(content)
+            onSaved: destroy()
+            onSaveFailed: error => {
+                log.error("Failed to save notepad annotations:", error);
+                destroy();
+            }
+        }
+    }
+
     function createEmptyFile(path, callback) {
         var cleanPath = decodeURI(path.toString());
 
@@ -480,10 +619,6 @@ Singleton {
             if (callback)
                 callback();
         });
-    }
-
-    function copyFile(source, destination) {
-        Proc.runCommand("", ["cp", source, destination], null);
     }
 
     function deleteFile(path) {

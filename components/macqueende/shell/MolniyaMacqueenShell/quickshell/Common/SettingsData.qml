@@ -663,6 +663,7 @@ Singleton {
     property real notificationBodyFontSize: Spec.SPEC.notificationBodyFontSize.def
     property bool notepadShowLineNumbers: false
     property bool notepadAutoSave: false
+    property bool notepadAutoContinueLists: true
     property string notepadSlideoutSide: "right"
     property string notepadDefaultMode: "slideout"
     property real notepadTransparencyOverride: -1
@@ -691,6 +692,7 @@ Singleton {
     onNotepadFontSizeChanged: saveSettings()
     onNotepadShowLineNumbersChanged: saveSettings()
     onNotepadAutoSaveChanged: saveSettings()
+    onNotepadAutoContinueListsChanged: saveSettings()
     onNotepadSlideoutSideChanged: saveSettings()
     onNotepadDefaultModeChanged: saveSettings()
     onNotepadUseCompositorGapChanged: saveSettings()

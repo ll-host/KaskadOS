@@ -4,9 +4,11 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Io
+import Macqueen.Ipc
 import qs.Common
 import qs.Services
 import qs.Widgets
+import "NotepadLogic.js" as NotepadLogic
 
 Column {
     id: root
@@ -33,11 +35,27 @@ Column {
     property var loadedTabId: -1
     property bool applyingShared: false
     property bool showPathInfo: false
+    property string previewMode: "edit"
+    property bool annotationsApplying: false
+    property bool bookmarksVisible: false
+    property var pendingAnnotationsTabId: -1
+    property var pendingAnnotations: null
+    readonly property bool splitPreviewAvailable: inPopout && width >= 760
+    readonly property bool markdownDocument: {
+        const path = currentFilePath().toLowerCase();
+        return path.endsWith(".md") || path.endsWith(".markdown");
+    }
 
     function currentFilePath() {
         if (!currentTab)
             return "";
         return currentTab.isTemporary ? (NotepadStorageService.baseDir + "/" + currentTab.filePath) : currentTab.filePath;
+    }
+
+    function currentDocumentBaseUrl() {
+        const path = currentFilePath();
+        const slash = path.lastIndexOf('/');
+        return slash >= 0 ? Paths.toFileUrl(path.substring(0, slash + 1)) : "";
     }
 
     signal saveRequested
@@ -50,6 +68,147 @@ Column {
     signal dockRequested
     signal conflictDetected(string diskContent)
     signal autoSaveRequested
+    signal imageRequested
+
+    onSplitPreviewAvailableChanged: {
+        if (!splitPreviewAvailable && previewMode === "split")
+            previewMode = "edit";
+    }
+
+    component EditorContextMenuItem: MenuItem {
+        id: menuItem
+
+        property string iconName: ""
+        property string shortcutText: ""
+
+        implicitWidth: 220
+        implicitHeight: 38
+        leftPadding: Theme.spacingS
+        rightPadding: Theme.spacingS
+
+        contentItem: RowLayout {
+            spacing: Theme.spacingS
+            opacity: menuItem.enabled ? 1 : 0.38
+
+            DankIcon {
+                Layout.preferredWidth: Theme.iconSize
+                name: menuItem.iconName
+                size: Theme.iconSizeSmall
+                color: Theme.surfaceText
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                text: menuItem.text
+                color: Theme.surfaceText
+                font.pixelSize: Theme.fontSizeMedium
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            StyledText {
+                visible: menuItem.shortcutText.length > 0
+                text: menuItem.shortcutText
+                color: Theme.surfaceTextSecondary
+                font.pixelSize: Theme.fontSizeSmall
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+
+        background: Rectangle {
+            radius: Theme.cornerRadius / 2
+            color: menuItem.highlighted && menuItem.enabled ? Theme.primaryHoverLight : "transparent"
+        }
+    }
+
+    function applyEdit(edit) {
+        if (!edit || !edit.handled)
+            return false;
+        textArea.remove(edit.start, edit.end);
+        if (edit.replacement && edit.replacement.length > 0)
+            textArea.insert(edit.start, edit.replacement);
+        textArea.cursorPosition = edit.cursor;
+        return true;
+    }
+
+    function wrapSelection(prefix, suffix, placeholder) {
+        const start = textArea.selectionStart;
+        const end = textArea.selectionEnd;
+        const selected = start < end ? textArea.selectedText : (placeholder || "текст");
+        const replacement = prefix + selected + suffix;
+        textArea.remove(start, end);
+        textArea.insert(start, replacement);
+        textArea.select(start + prefix.length, start + prefix.length + selected.length);
+        textArea.forceActiveFocus();
+    }
+
+    function prefixCurrentLine(prefix) {
+        const bounds = NotepadLogic.lineBounds(textArea.text, textArea.cursorPosition);
+        textArea.insert(bounds.start, prefix);
+        textArea.cursorPosition += prefix.length;
+        textArea.forceActiveFocus();
+    }
+
+    function insertAtCursor(value) {
+        const start = textArea.selectionStart;
+        const end = textArea.selectionEnd;
+        textArea.remove(start, end);
+        textArea.insert(start, value);
+        textArea.cursorPosition = start + value.length;
+        textArea.forceActiveFocus();
+    }
+
+    function insertImagePath(path, alt) {
+        insertAtCursor(NotepadLogic.markdownImage(alt, path));
+    }
+
+    function cyclePreviewMode() {
+        if (!splitPreviewAvailable) {
+            previewMode = previewMode === "preview" ? "edit" : "preview";
+            return;
+        }
+        previewMode = previewMode === "edit" ? "split" : (previewMode === "split" ? "preview" : "edit");
+    }
+
+    function chooseTextColor() {
+        if (textArea.selectionStart === textArea.selectionEnd) {
+            ToastService.showInfo(I18n.tr("Select text first"));
+            return;
+        }
+        const start = textArea.selectionStart;
+        const end = textArea.selectionEnd;
+        PopoutService.colorPickerModal.selectedColor = Theme.primary;
+        PopoutService.colorPickerModal.pickerTitle = I18n.tr("Text Color");
+        PopoutService.colorPickerModal.onColorSelectedCallback = function (color) {
+            documentController.applyTextColor(start, end, color);
+        };
+        PopoutService.showColorPicker();
+    }
+
+    function toggleBookmark() {
+        if (documentController.hasBookmarkAt(textArea.cursorPosition)) {
+            documentController.toggleBookmark(textArea.cursorPosition, Theme.primary);
+            return;
+        }
+        const position = textArea.cursorPosition;
+        PopoutService.colorPickerModal.selectedColor = Theme.primary;
+        PopoutService.colorPickerModal.pickerTitle = I18n.tr("Bookmark Color");
+        PopoutService.colorPickerModal.onColorSelectedCallback = function (color) {
+            documentController.toggleBookmark(position, color);
+            bookmarksVisible = true;
+        };
+        PopoutService.showColorPicker();
+    }
+
+    function loadAnnotationsForCurrentTab() {
+        const tabId = currentTab ? currentTab.id : -1;
+        NotepadStorageService.loadDocumentAnnotations(NotepadStorageService.currentTabIndex, annotations => {
+            if (!currentTab || currentTab.id !== tabId)
+                return;
+            annotationsApplying = true;
+            documentController.setAnnotations(annotations || NotepadStorageService.emptyAnnotations());
+            annotationsApplying = false;
+        });
+    }
 
     function hasUnsavedChanges() {
         if (!currentTab || !contentLoaded) {
@@ -65,7 +224,17 @@ Column {
     function commitLiveBuffer() {
         if (loadedTabId < 0 || !contentLoaded)
             return;
+        flushAnnotations();
         NotepadStorageService.setSessionBuffer(loadedTabId, textArea.text, lastSavedContent);
+    }
+
+    function flushAnnotations() {
+        annotationSaveTimer.stop();
+        const tabIndex = NotepadStorageService.tabIndexById(pendingAnnotationsTabId);
+        if (tabIndex >= 0 && pendingAnnotations)
+            NotepadStorageService.saveDocumentAnnotations(tabIndex, pendingAnnotations);
+        pendingAnnotationsTabId = -1;
+        pendingAnnotations = null;
     }
 
     function loadCurrentTabContent() {
@@ -88,6 +257,7 @@ Column {
                 loadedTabId = requestedTabId;
                 contentLoaded = true;
                 applyDiskContent(content);
+                loadAnnotationsForCurrentTab();
                 return;
             }
 
@@ -97,6 +267,7 @@ Column {
             applyingShared = false;
             loadedTabId = requestedTabId;
             contentLoaded = true;
+            loadAnnotationsForCurrentTab();
         });
     }
 
@@ -272,6 +443,110 @@ Column {
 
     spacing: Theme.spacingM
 
+    NotepadDocumentController {
+        id: documentController
+        textDocument: textArea.textDocument
+        markdownEnabled: root.markdownDocument
+        onAnnotationsChanged: {
+            if (!root.annotationsApplying && root.contentLoaded) {
+                root.pendingAnnotationsTabId = root.loadedTabId;
+                root.pendingAnnotations = documentController.annotations();
+                annotationSaveTimer.restart();
+            }
+        }
+    }
+
+    Menu {
+        id: editorContextMenu
+
+        parent: root
+        width: 228
+        padding: Theme.spacingXS
+        modal: false
+        dim: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        onClosed: Qt.callLater(() => textArea.forceActiveFocus())
+
+        background: Rectangle {
+            color: Theme.floatingSurface
+            radius: Theme.cornerRadius
+            border.color: BlurService.borderColor
+            border.width: BlurService.borderWidth
+        }
+
+        EditorContextMenuItem {
+            text: I18n.tr("Undo")
+            iconName: "undo"
+            shortcutText: "Ctrl+Z"
+            enabled: textArea.canUndo
+            onTriggered: textArea.undo()
+        }
+
+        EditorContextMenuItem {
+            text: I18n.tr("Redo")
+            iconName: "redo"
+            shortcutText: "Ctrl+Shift+Z"
+            enabled: textArea.canRedo
+            onTriggered: textArea.redo()
+        }
+
+        MenuSeparator {
+            implicitHeight: Theme.spacingM
+            contentItem: Rectangle {
+                implicitHeight: 1
+                color: Theme.outlineMedium
+            }
+        }
+
+        EditorContextMenuItem {
+            text: I18n.tr("Cut")
+            iconName: "content_cut"
+            shortcutText: "Ctrl+X"
+            enabled: textArea.selectionStart !== textArea.selectionEnd
+            onTriggered: textArea.cut()
+        }
+
+        EditorContextMenuItem {
+            text: I18n.tr("Copy")
+            iconName: "content_copy"
+            shortcutText: "Ctrl+C"
+            enabled: textArea.selectionStart !== textArea.selectionEnd
+            onTriggered: textArea.copy()
+        }
+
+        EditorContextMenuItem {
+            text: I18n.tr("Paste")
+            iconName: "content_paste"
+            shortcutText: "Ctrl+V"
+            enabled: textArea.canPaste
+            onTriggered: textArea.paste()
+        }
+
+        EditorContextMenuItem {
+            text: I18n.tr("Delete")
+            iconName: "delete"
+            enabled: textArea.selectionStart !== textArea.selectionEnd
+            onTriggered: textArea.remove(textArea.selectionStart, textArea.selectionEnd)
+        }
+
+        MenuSeparator {
+            implicitHeight: Theme.spacingM
+            contentItem: Rectangle {
+                implicitHeight: 1
+                color: Theme.outlineMedium
+            }
+        }
+
+        EditorContextMenuItem {
+            text: I18n.tr("Select All")
+            iconName: "select_all"
+            shortcutText: "Ctrl+A"
+            enabled: textArea.length > 0
+            onTriggered: textArea.selectAll()
+        }
+    }
+
     StyledRect {
         id: searchBar
         width: parent.width
@@ -411,8 +686,125 @@ Column {
     }
 
     StyledRect {
+        id: formatBar
         width: parent.width
-        height: parent.height - bottomControls.height - Theme.spacingM - (searchVisible ? searchBar.height + Theme.spacingM : 0)
+        height: 42
+        color: Theme.withAlpha(Theme.surfaceContainer, Theme.notepadTransparency)
+        border.color: Theme.outlineMedium
+        border.width: 1
+        radius: Theme.cornerRadius
+
+        DankFlickable {
+            anchors.fill: parent
+            anchors.leftMargin: Theme.spacingS
+            anchors.rightMargin: Theme.spacingS
+            contentWidth: formatButtons.width
+            contentHeight: height
+            flickableDirection: Flickable.HorizontalFlick
+            clip: true
+
+            Row {
+                id: formatButtons
+                height: parent.height
+                spacing: Theme.spacingXS
+
+                DankActionButton {
+                    visible: root.markdownDocument
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "title"
+                    iconColor: Theme.surfaceText
+                    tooltipText: I18n.tr("Heading")
+                    onClicked: root.prefixCurrentLine("## ")
+                }
+                DankActionButton {
+                    visible: root.markdownDocument
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "format_bold"
+                    iconColor: Theme.surfaceText
+                    tooltipText: I18n.tr("Bold") + " · Ctrl+B"
+                    onClicked: root.wrapSelection("**", "**", I18n.tr("bold text"))
+                }
+                DankActionButton {
+                    visible: root.markdownDocument
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "format_italic"
+                    iconColor: Theme.surfaceText
+                    tooltipText: I18n.tr("Italic") + " · Ctrl+I"
+                    onClicked: root.wrapSelection("*", "*", I18n.tr("italic text"))
+                }
+                DankActionButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "checklist"
+                    iconColor: Theme.surfaceText
+                    tooltipText: I18n.tr("Checklist")
+                    onClicked: root.prefixCurrentLine("- [ ] ")
+                }
+                DankActionButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "format_list_numbered"
+                    iconColor: Theme.surfaceText
+                    tooltipText: I18n.tr("Numbered List")
+                    onClicked: root.prefixCurrentLine("1. ")
+                }
+                DankActionButton {
+                    visible: root.markdownDocument
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "image"
+                    iconColor: Theme.surfaceText
+                    tooltipText: I18n.tr("Add Image")
+                    onClicked: root.imageRequested()
+                }
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 1
+                    height: 24
+                    color: Theme.outlineMedium
+                }
+                DankActionButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "format_color_text"
+                    iconColor: Theme.primary
+                    tooltipText: I18n.tr("Text Color")
+                    onClicked: root.chooseTextColor()
+                }
+                DankActionButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "format_color_reset"
+                    iconColor: Theme.surfaceTextMedium
+                    tooltipText: I18n.tr("Clear Text Color")
+                    enabled: textArea.selectionStart !== textArea.selectionEnd
+                    onClicked: documentController.clearTextColor(textArea.selectionStart, textArea.selectionEnd)
+                }
+                DankActionButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: documentController.hasBookmarkAt(textArea.cursorPosition) ? "bookmark_remove" : "bookmark_add"
+                    iconColor: documentController.hasBookmarkAt(textArea.cursorPosition) ? Theme.warning : Theme.primary
+                    tooltipText: documentController.hasBookmarkAt(textArea.cursorPosition) ? I18n.tr("Remove Bookmark") : I18n.tr("Add Bookmark")
+                    onClicked: root.toggleBookmark()
+                }
+                DankActionButton {
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: "bookmarks"
+                    iconColor: root.bookmarksVisible ? Theme.primary : Theme.surfaceText
+                    tooltipText: I18n.tr("Bookmarks")
+                    enabled: documentController.bookmarks.length > 0
+                    onClicked: root.bookmarksVisible = !root.bookmarksVisible
+                }
+                DankActionButton {
+                    visible: root.markdownDocument
+                    anchors.verticalCenter: parent.verticalCenter
+                    iconName: root.previewMode === "edit" ? (root.splitPreviewAvailable ? "splitscreen" : "visibility") : (root.previewMode === "split" ? "visibility" : "edit")
+                    iconColor: root.previewMode === "edit" ? Theme.surfaceText : Theme.primary
+                    tooltipText: I18n.tr("Markdown Preview") + " · Ctrl+P"
+                    onClicked: root.cyclePreviewMode()
+                }
+            }
+        }
+    }
+
+    StyledRect {
+        width: parent.width
+        height: parent.height - bottomControls.height - formatBar.height - Theme.spacingM * 2 - (searchVisible ? searchBar.height + Theme.spacingM : 0)
         color: Theme.withAlpha(Theme.surface, Theme.notepadTransparency)
         border.color: Theme.outlineMedium
         border.width: 1
@@ -426,10 +818,10 @@ Column {
 
             Item {
                 id: editorPane
-                visible: true
+                visible: !root.markdownDocument || root.previewMode !== "preview"
                 Layout.fillHeight: true
                 Layout.fillWidth: true
-                Layout.preferredWidth: parent.width
+                Layout.preferredWidth: 1
                 clip: true
 
                 DankFlickable {
@@ -578,6 +970,20 @@ Column {
                         }
 
                         Keys.onPressed: event => {
+                            if (SettingsData.notepadAutoContinueLists && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                                    && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier | Qt.ShiftModifier))) {
+                                if (root.applyEdit(NotepadLogic.continueList(textArea.text, textArea.cursorPosition))) {
+                                    event.accepted = true;
+                                    return;
+                                }
+                            }
+                            if (event.key === Qt.Key_Tab && textArea.selectionStart === textArea.selectionEnd) {
+                                if (root.applyEdit(NotepadLogic.changeListLevel(textArea.text, textArea.cursorPosition,
+                                                                                event.modifiers & Qt.ShiftModifier))) {
+                                    event.accepted = true;
+                                    return;
+                                }
+                            }
                             if (event.modifiers & Qt.ControlModifier) {
                                 switch (event.key) {
                                 case Qt.Key_S:
@@ -600,12 +1006,52 @@ Column {
                                     event.accepted = true;
                                     root.showSearch();
                                     break;
+                                case Qt.Key_B:
+                                    if (root.markdownDocument) {
+                                        event.accepted = true;
+                                        root.wrapSelection("**", "**", I18n.tr("bold text"));
+                                    }
+                                    break;
+                                case Qt.Key_I:
+                                    if (root.markdownDocument) {
+                                        event.accepted = true;
+                                        root.wrapSelection("*", "*", I18n.tr("italic text"));
+                                    }
+                                    break;
+                                case Qt.Key_P:
+                                    if (root.markdownDocument) {
+                                        event.accepted = true;
+                                        root.cyclePreviewMode();
+                                    }
+                                    break;
                                 }
                             }
                         }
 
                         background: Rectangle {
                             color: "transparent"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            z: 100
+                            acceptedButtons: Qt.RightButton
+                            hoverEnabled: false
+                            scrollGestureEnabled: false
+
+                            onPressed: mouse => {
+                                const clickedPosition = textArea.positionAt(mouse.x, mouse.y);
+                                if (clickedPosition < textArea.selectionStart || clickedPosition > textArea.selectionEnd) {
+                                    textArea.deselect();
+                                    textArea.cursorPosition = clickedPosition;
+                                }
+
+                                const menuPosition = mapToItem(root, mouse.x, mouse.y);
+                                editorContextMenu.x = Math.max(0, Math.min(menuPosition.x, root.width - editorContextMenu.width));
+                                editorContextMenu.y = Math.max(0, Math.min(menuPosition.y, root.height - editorContextMenu.height));
+                                editorContextMenu.open();
+                                mouse.accepted = true;
+                            }
                         }
                     }
 
@@ -621,6 +1067,112 @@ Column {
                         anchors.leftMargin: textArea.leftPadding
                         anchors.topMargin: textArea.topPadding
                         z: textArea.z + 1
+                    }
+                }
+            }
+
+            Item {
+                id: previewPane
+                visible: root.markdownDocument && root.previewMode !== "edit"
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.preferredWidth: 1
+                clip: true
+
+                ScrollView {
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingM
+
+                    TextArea {
+                        readOnly: true
+                        text: textArea.text
+                        textFormat: TextEdit.MarkdownText
+                        baseUrl: root.currentDocumentBaseUrl()
+                        wrapMode: TextEdit.Wrap
+                        color: Theme.surfaceText
+                        font.family: SettingsData.fontFamily
+                        font.pixelSize: SettingsData.notepadFontSize * SettingsData.fontScale
+                        background: null
+                        selectByMouse: true
+                    }
+                }
+            }
+
+            StyledRect {
+                visible: root.bookmarksVisible && documentController.bookmarks.length > 0
+                Layout.fillHeight: true
+                Layout.preferredWidth: 190
+                color: Theme.withAlpha(Theme.surfaceContainer, 0.72)
+                border.color: Theme.outlineMedium
+                border.width: 1
+                radius: Theme.cornerRadius
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.spacingS
+                    spacing: Theme.spacingS
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: I18n.tr("Bookmarks")
+                        color: Theme.surfaceText
+                        font.weight: Font.DemiBold
+                    }
+
+                    ListView {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: Theme.spacingXS
+                        clip: true
+                        model: documentController.bookmarks
+
+                        delegate: StyledRect {
+                            required property var modelData
+                            width: ListView.view.width
+                            height: 38
+                            radius: Theme.cornerRadius
+                            color: Theme.withAlpha(Theme.surfaceContainerHigh, 0.65)
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.leftMargin: Theme.spacingS
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 8
+                                height: 22
+                                radius: 4
+                                color: modelData.color
+                            }
+                            StyledText {
+                                anchors.left: parent.left
+                                anchors.leftMargin: Theme.spacingXL
+                                anchors.right: removeBookmark.left
+                                anchors.rightMargin: Theme.spacingXS
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.label
+                                color: Theme.surfaceText
+                                elide: Text.ElideRight
+                                font.pixelSize: Theme.fontSizeSmall
+                            }
+                            DankActionButton {
+                                id: removeBookmark
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                iconName: "close"
+                                buttonSize: 26
+                                iconSize: Theme.iconSizeSmall
+                                onClicked: documentController.toggleBookmark(modelData.position, modelData.color)
+                            }
+                            StateLayer {
+                                anchors.fill: parent
+                                anchors.rightMargin: removeBookmark.width
+                                cornerRadius: parent.radius
+                                stateColor: Theme.primary
+                                onClicked: {
+                                    textArea.cursorPosition = modelData.position;
+                                    textArea.forceActiveFocus();
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -858,6 +1410,19 @@ Column {
         repeat: false
         onTriggered: {
             autoSaveToSession();
+        }
+    }
+
+    Timer {
+        id: annotationSaveTimer
+        interval: 350
+        repeat: false
+        onTriggered: {
+            const tabIndex = NotepadStorageService.tabIndexById(root.pendingAnnotationsTabId);
+            if (tabIndex >= 0 && root.pendingAnnotations)
+                NotepadStorageService.saveDocumentAnnotations(tabIndex, root.pendingAnnotations);
+            root.pendingAnnotationsTabId = -1;
+            root.pendingAnnotations = null;
         }
     }
 

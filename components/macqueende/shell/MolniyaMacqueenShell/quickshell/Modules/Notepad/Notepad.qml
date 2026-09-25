@@ -13,6 +13,7 @@ Item {
     id: root
 
     property bool fileDialogOpen: false
+    property bool imageDialogOpen: false
     property string currentFileName: ""
     property url currentFileUrl
     property bool confirmationDialogOpen: false
@@ -22,8 +23,11 @@ Item {
     property var currentTab: NotepadStorageService.tabs.length > NotepadStorageService.currentTabIndex ? NotepadStorageService.tabs[NotepadStorageService.currentTabIndex] : null
     property bool showSettingsMenu: false
     property string pendingSaveContent: ""
+    property var pendingSaveTabId: -1
+    property string pendingSavePath: ""
+    property string pendingTemporaryPath: ""
     readonly property bool conflictBannerVisible: currentTab !== null && NotepadStorageService.conflictTabId === currentTab.id
-    readonly property bool anyModalOpen: fileDialogOpen || confirmationDialogOpen
+    readonly property bool anyModalOpen: fileDialogOpen || imageDialogOpen || confirmationDialogOpen
     property var slideout: null
     property bool inPopout: false
     property bool surfaceVisible: slideout ? slideout.isVisible : true
@@ -157,11 +161,34 @@ Item {
         textEditor.externalWatchPaused = true;
         saveFileView.path = "";
         pendingSaveContent = content;
+        pendingSaveTabId = currentTab.id;
+        pendingSavePath = filePath;
         saveFileView.path = filePath;
 
         Qt.callLater(() => {
             saveFileView.setText(pendingSaveContent);
         });
+    }
+
+    function completePendingAction() {
+        const action = root.pendingAction;
+        root.pendingAction = "";
+
+        if (action === "new") {
+            createNewTab();
+        } else if (action === "open") {
+            root.fileDialogOpen = true;
+            loadBrowserLoader.active = true;
+            if (loadBrowserLoader.item)
+                loadBrowserLoader.item.open();
+        } else if (action === "load_file") {
+            const fileUrl = root.pendingFileUrl;
+            root.pendingFileUrl = "";
+            performLoadFromFile(fileUrl);
+        } else if (action.startsWith("close_tab_")) {
+            const tabIndex = parseInt(action.split("_")[2]);
+            performCloseTab(tabIndex);
+        }
     }
 
     function saveExternalWithFreshnessCheck() {
@@ -495,6 +522,17 @@ Item {
             }
 
             onAutoSaveRequested: root.autoSaveExternal()
+
+            onImageRequested: {
+                if (!currentTab || currentTab.isTemporary || !currentTab.filePath) {
+                    ToastService.showInfo(I18n.tr("Save the Markdown document before adding images"));
+                    return;
+                }
+                root.imageDialogOpen = true;
+                imageBrowserLoader.active = true;
+                if (imageBrowserLoader.item)
+                    imageBrowserLoader.item.open();
+            }
         }
     }
 
@@ -517,25 +555,44 @@ Item {
         printErrors: true
 
         onSaved: {
-            if (currentTab && saveFileView.path) {
-                NotepadStorageService.updateTabMetadata(NotepadStorageService.currentTabIndex, {
+            const savedTabIndex = NotepadStorageService.tabIndexById(root.pendingSaveTabId);
+            if (savedTabIndex >= 0 && saveFileView.path) {
+                const savedTab = NotepadStorageService.tabs[savedTabIndex];
+                if (savedTab.isTemporary || savedTab.filePath !== root.pendingSavePath)
+                    NotepadStorageService.saveTabAs(savedTabIndex, root.pendingSavePath);
+                NotepadStorageService.updateTabMetadata(savedTabIndex, {
                     hasUnsavedChanges: false,
                     lastSavedContent: pendingSaveContent
                 });
-                root.lastSavedFileContent = pendingSaveContent;
-                textEditor.lastSavedContent = pendingSaveContent;
-                textEditor.ignoreNextExternalChange = true;
-                textEditor.commitLiveBuffer();
-                if (root.conflictBannerVisible)
+                root.currentFileName = root.pendingSavePath.split('/').pop();
+                root.currentFileUrl = "file://" + root.pendingSavePath;
+                NotepadStorageService.clearSessionBuffer(root.pendingSaveTabId);
+                if (textEditor.loadedTabId === root.pendingSaveTabId) {
+                    root.lastSavedFileContent = pendingSaveContent;
+                    textEditor.lastSavedContent = pendingSaveContent;
+                    textEditor.ignoreNextExternalChange = true;
+                }
+                if (NotepadStorageService.conflictTabId === root.pendingSaveTabId)
                     NotepadStorageService.clearConflict();
+            }
+            if (root.pendingTemporaryPath.length > 0) {
+                NotepadStorageService.deleteFile(root.pendingTemporaryPath);
+                NotepadStorageService.deleteFile(root.pendingTemporaryPath + ".kaskad-meta.json");
             }
             textEditor.externalWatchPaused = false;
             pendingSaveContent = "";
+            pendingSaveTabId = -1;
+            pendingSavePath = "";
+            pendingTemporaryPath = "";
+            Qt.callLater(root.completePendingAction);
         }
 
         onSaveFailed: error => {
             textEditor.externalWatchPaused = false;
             pendingSaveContent = "";
+            pendingSaveTabId = -1;
+            pendingSavePath = "";
+            pendingTemporaryPath = "";
         }
     }
 
@@ -575,37 +632,14 @@ Item {
             onFileSelected: path => {
                 root.fileDialogOpen = false;
                 const cleanPath = decodeURI(path.toString().replace(/^file:\/\//, ''));
-                const fileName = cleanPath.split('/').pop();
                 const fileUrl = "file://" + cleanPath;
 
-                root.currentFileName = fileName;
-                root.currentFileUrl = fileUrl;
                 textEditor.externalWatchPaused = true;
 
-                if (currentTab) {
-                    NotepadStorageService.saveTabAs(NotepadStorageService.currentTabIndex, cleanPath);
-                }
+                if (currentTab)
+                    root.pendingTemporaryPath = currentTab.isTemporary ? NotepadStorageService.baseDir + "/" + currentTab.filePath : "";
 
                 saveToFile(fileUrl);
-
-                if (root.pendingAction === "new") {
-                    Qt.callLater(() => {
-                        createNewTab();
-                    });
-                } else if (root.pendingAction === "open") {
-                    Qt.callLater(() => {
-                        root.fileDialogOpen = true;
-                        loadBrowserLoader.active = true;
-                        if (loadBrowserLoader.item)
-                            loadBrowserLoader.item.open();
-                    });
-                } else if (root.pendingAction.startsWith("close_tab_")) {
-                    Qt.callLater(() => {
-                        var tabIndex = parseInt(root.pendingAction.split("_")[2]);
-                        performCloseTab(tabIndex);
-                    });
-                }
-                root.pendingAction = "";
 
                 close();
             }
@@ -645,6 +679,39 @@ Item {
             onDialogClosed: {
                 root.fileDialogOpen = false;
             }
+        }
+    }
+
+    LazyLoader {
+        id: imageBrowserLoader
+        active: false
+
+        FileBrowserSurfaceModal {
+            browserTitle: I18n.tr("Add Image")
+            browserIcon: "image"
+            browserType: "notepad_image"
+            fileExtensions: ["*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.svg"]
+            allowStacking: true
+
+            onFileSelected: path => {
+                root.imageDialogOpen = false;
+                const sourcePath = decodeURI(path.toString().replace(/^file:\/\//, ''));
+                const sourceName = sourcePath.split('/').pop();
+                const dot = sourceName.lastIndexOf('.');
+                const alt = dot > 0 ? sourceName.substring(0, dot) : sourceName;
+                const documentPath = currentTab ? currentTab.filePath : "";
+                NotepadStorageService.copyImageForDocument(documentPath, sourcePath, (relativePath, success) => {
+                    if (!success) {
+                        ToastService.showError(I18n.tr("Could not copy image"));
+                        return;
+                    }
+                    textEditor.insertImagePath(relativePath, alt);
+                    ToastService.showInfo(I18n.tr("Image added to document assets"));
+                });
+                close();
+            }
+
+            onDialogClosed: root.imageDialogOpen = false
         }
     }
 

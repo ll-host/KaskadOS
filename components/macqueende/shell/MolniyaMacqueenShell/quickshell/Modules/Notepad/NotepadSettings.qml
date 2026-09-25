@@ -158,6 +158,18 @@ Item {
                     anchors.left: parent.left
                     anchors.leftMargin: -Theme.spacingM
                     width: parent.width + Theme.spacingM
+                    text: I18n.tr("Continue Lists Automatically")
+                    description: I18n.tr("Continue numbering, bullets and checkboxes after Enter")
+                    checked: SettingsData.notepadAutoContinueLists
+                    onToggled: checked => {
+                        SettingsData.notepadAutoContinueLists = checked;
+                    }
+                }
+
+                DankToggle {
+                    anchors.left: parent.left
+                    anchors.leftMargin: -Theme.spacingM
+                    width: parent.width + Theme.spacingM
                     text: I18n.tr("Show Line Numbers")
                     description: I18n.tr("Display line numbers in editor")
                     checked: SettingsData.notepadShowLineNumbers
