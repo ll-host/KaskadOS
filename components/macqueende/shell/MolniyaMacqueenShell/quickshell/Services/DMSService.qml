@@ -770,6 +770,52 @@ Singleton {
         sendRequest("files.trash", {"path": path}, callback);
     }
 
+    function filesTrashList(callback) {
+        sendRequest("files.trashList", null, callback);
+    }
+
+    function filesTrashRestore(name, trashDir, callback) {
+        sendRequest("files.trashRestore", {"name": name, "trashDir": trashDir}, callback);
+    }
+
+    function filesTrashDelete(name, trashDir, callback) {
+        sendRequest("files.trashDelete", {"name": name, "trashDir": trashDir}, callback);
+    }
+
+    function filesTrashEmpty(callback) {
+        sendRequest("files.trashEmpty", null, callback);
+    }
+
+    function filesDevices(callback) {
+        sendRequest("files.devices", null, callback);
+    }
+
+    function filesMount(path, callback) {
+        sendRequest("files.mount", {"path": path}, callback);
+    }
+
+    function filesSafelyRemove(path, callback) {
+        sendRequest("files.safelyRemove", {
+            "path": path
+        }, callback);
+    }
+
+    function filesTransfer(source, destination, move, callback) {
+        sendRequest("files.transfer", {
+            "source": source,
+            "destination": destination,
+            "move": move === true
+        }, callback);
+    }
+
+    function filesOperation(id, callback) {
+        sendRequest("files.operation", {"id": id}, callback);
+    }
+
+    function filesCancelOperation(id, callback) {
+        sendRequest("files.cancelOperation", {"id": id}, callback);
+    }
+
     function filesOpen(path, callback) {
         sendRequest("files.open", {"path": path}, callback);
     }

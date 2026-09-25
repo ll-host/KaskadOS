@@ -35,6 +35,71 @@ func HandleRequest(conn *models.Conn, req models.Request, manager *Manager) {
 			return
 		}
 		models.Respond(conn, req.ID, models.SuccessResult{Success: true})
+	case "files.trashList":
+		entries, err := manager.TrashList()
+		if err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, entries)
+	case "files.trashRestore":
+		if err := manager.TrashRestore(models.GetOr(req, "name", ""), models.GetOr(req, "trashDir", "")); err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, models.SuccessResult{Success: true})
+	case "files.trashDelete":
+		if err := manager.TrashDelete(models.GetOr(req, "name", ""), models.GetOr(req, "trashDir", "")); err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, models.SuccessResult{Success: true})
+	case "files.trashEmpty":
+		if err := manager.TrashEmpty(); err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, models.SuccessResult{Success: true})
+	case "files.devices":
+		devices, err := manager.Devices()
+		if err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, devices)
+	case "files.mount":
+		mountPoint, err := manager.Mount(models.GetOr(req, "path", ""))
+		if err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, models.SuccessResult{Success: true, Value: mountPoint})
+	case "files.safelyRemove":
+		if err := manager.SafelyRemove(models.GetOr(req, "path", "")); err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, models.SuccessResult{Success: true})
+	case "files.transfer":
+		operation, err := manager.StartTransfer(models.GetOr(req, "source", ""), models.GetOr(req, "destination", ""), models.GetOr(req, "move", false))
+		if err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, operation)
+	case "files.operation":
+		operation, err := manager.Operation(models.GetOr(req, "id", ""))
+		if err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, operation)
+	case "files.cancelOperation":
+		if err := manager.CancelOperation(models.GetOr(req, "id", "")); err != nil {
+			models.RespondError(conn, req.ID, err.Error())
+			return
+		}
+		models.Respond(conn, req.ID, models.SuccessResult{Success: true})
 	case "files.open":
 		if err := manager.Open(models.GetOr(req, "path", "")); err != nil {
 			models.RespondError(conn, req.ID, err.Error())
