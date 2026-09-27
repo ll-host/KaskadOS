@@ -11,7 +11,7 @@ Singleton {
     property bool loaded: false
     property bool available: false
     property bool automatic: false
-    property bool synchronized: false
+    property bool timeSynchronized: false
     property bool changing: false
     property int requestGeneration: 0
     property string timezone: ""
@@ -42,7 +42,7 @@ Singleton {
             return;
         available = state.available === true;
         automatic = state.automatic === true;
-        synchronized = state.synchronized === true;
+        timeSynchronized = state.synchronized === true;
         timezone = state.timezone || "";
         error = "";
         loaded = true;
@@ -56,7 +56,7 @@ Singleton {
             loaded = false;
             available = false;
             automatic = false;
-            synchronized = false;
+            timeSynchronized = false;
             timezone = "";
             return;
         }

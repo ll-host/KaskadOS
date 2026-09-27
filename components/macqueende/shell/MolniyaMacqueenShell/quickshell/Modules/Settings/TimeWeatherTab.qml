@@ -60,7 +60,7 @@ Item {
                             return TimeSyncService.error || I18n.tr("Automatic time synchronization is unavailable");
                         if (!TimeSyncService.automatic)
                             return I18n.tr("Off — the clock will not be corrected automatically");
-                        if (TimeSyncService.synchronized)
+                        if (TimeSyncService.timeSynchronized)
                             return I18n.tr("Synchronized from the internet%1").arg(TimeSyncService.timezone ? " · " + TimeSyncService.timezone : "");
                         return I18n.tr("Enabled — waiting for synchronization%1").arg(TimeSyncService.timezone ? " · " + TimeSyncService.timezone : "");
                     }
