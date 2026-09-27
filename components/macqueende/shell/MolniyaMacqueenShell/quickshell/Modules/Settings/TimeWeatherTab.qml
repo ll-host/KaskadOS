@@ -41,6 +41,37 @@ Item {
 
             SettingsCard {
                 tab: "time"
+                tags: ["time", "date", "automatic", "sync", "ntp", "timezone"]
+                title: I18n.tr("Date & Time")
+                settingKey: "dateTimeSync"
+                iconName: "sync"
+
+                SettingsToggleRow {
+                    tab: "time"
+                    tags: ["time", "date", "automatic", "sync", "ntp", "internet", "timezone"]
+                    settingKey: "automaticDateTime"
+                    text: I18n.tr("Automatic Date & Time")
+                    description: {
+                        if (!TimeSyncService.loaded)
+                            return I18n.tr("Checking system time service…");
+                        if (TimeSyncService.changing)
+                            return I18n.tr("Applying…");
+                        if (!TimeSyncService.available)
+                            return TimeSyncService.error || I18n.tr("Automatic time synchronization is unavailable");
+                        if (!TimeSyncService.automatic)
+                            return I18n.tr("Off — the clock will not be corrected automatically");
+                        if (TimeSyncService.synchronized)
+                            return I18n.tr("Synchronized from the internet%1").arg(TimeSyncService.timezone ? " · " + TimeSyncService.timezone : "");
+                        return I18n.tr("Enabled — waiting for synchronization%1").arg(TimeSyncService.timezone ? " · " + TimeSyncService.timezone : "");
+                    }
+                    checked: TimeSyncService.automatic
+                    enabled: TimeSyncService.loaded && TimeSyncService.available && !TimeSyncService.changing
+                    onToggled: checked => TimeSyncService.setAutomatic(checked)
+                }
+            }
+
+            SettingsCard {
+                tab: "time"
                 tags: ["time", "clock", "format", "24hour"]
                 title: I18n.tr("Time Format")
                 settingKey: "timeFormat"

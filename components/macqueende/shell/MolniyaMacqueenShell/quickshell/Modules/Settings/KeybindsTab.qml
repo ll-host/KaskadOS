@@ -5,6 +5,7 @@ import Quickshell
 import Macqueen.Ipc
 import qs.Common
 import qs.Modals.Common
+import qs.Modules.Settings.Widgets
 import qs.Services
 import qs.Widgets
 
@@ -378,21 +379,37 @@ Item {
                     spacing: Theme.spacingM
 
                     StyledText {
-                        text: "Микрофон"
+                        text: I18n.tr("Microphone")
                         font.pixelSize: Theme.fontSizeLarge
                         font.weight: Font.Medium
                         color: Theme.surfaceText
                     }
 
+                    SettingsToggleRow {
+                        tab: "keybinds"
+                        tags: ["microphone", "shortcut", "hotkey", "mouse", "mute"]
+                        settingKey: "microphoneShortcutEnabled"
+                        text: I18n.tr("Microphone shortcut")
+                        description: I18n.tr("Use a key or mouse button to control the microphone. Panel controls always remain available.")
+                        checked: SessionData.microphoneShortcutEnabled
+                        onToggled: checked => {
+                            keybindsTab.stopMicrophoneShortcutRecording();
+                            SessionData.set("microphoneShortcutEnabled", checked);
+                        }
+                    }
+
                     StyledText {
                         width: parent.width
-                        text: "По умолчанию — V. Она срабатывает и при обычном наборе текста; здесь можно записать сочетание клавиш."
+                        text: I18n.tr("Letters, modifier keys, combinations, and mouse buttons 3–8 are supported.")
                         color: Theme.surfaceVariantText
                         wrapMode: Text.WordWrap
+                        opacity: SessionData.microphoneShortcutEnabled ? 1 : 0.5
                     }
 
                     Row {
                         spacing: Theme.spacingM
+                        enabled: SessionData.microphoneShortcutEnabled
+                        opacity: enabled ? 1 : 0.5
 
                         FocusScope {
                             id: microphoneShortcutField
@@ -414,7 +431,7 @@ Item {
                             }
                             StyledText {
                                 anchors.centerIn: parent
-                                text: keybindsTab.microphoneShortcutRecording ? "Нажмите сочетание…" : (Macqueen.microphoneShortcut || "V")
+                                text: keybindsTab.microphoneShortcutRecording ? I18n.tr("Press a key, modifier, or mouse button…") : (Macqueen.microphoneShortcut || "V")
                                 color: Theme.surfaceText
                             }
                             MouseArea {
@@ -455,6 +472,8 @@ Item {
                             width: microphoneShortcutSection.width
                             height: modeText.implicitHeight + Theme.spacingM * 2
                             radius: Theme.cornerRadius
+                            enabled: SessionData.microphoneShortcutEnabled
+                            opacity: enabled ? 1 : 0.5
                             color: SessionData.microphoneShortcutMode === modelData.value ? Theme.primaryContainer : Theme.surfaceContainerHighest
 
                             Column {

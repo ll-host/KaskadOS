@@ -106,6 +106,7 @@ noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
 noto-fonts-extra
+ntfs-3g
 ntfsprogs
 nvme-cli
 open-iscsi
@@ -163,6 +164,8 @@ ttf-fira-code
 ttf-material-symbols-variable
 ttf-nerd-fonts-symbols
 udftools
+udisks2
+udisks2-btrfs
 umu-launcher
 unrar
 usb_modeswitch

@@ -59,7 +59,7 @@ Singleton {
         microphoneShortcutOff = false;
         microphoneShortcutHeld = false;
         microphoneShortcutNode = null;
-        if (SessionData.microphoneShortcutMode === "holdToTalk")
+        if (SessionData.microphoneShortcutEnabled && SessionData.microphoneShortcutMode === "holdToTalk")
             setMicrophoneShortcutOff(true);
     }
 
@@ -77,6 +77,8 @@ Singleton {
         }
         microphoneShortcutNode = null;
         microphoneShortcutOff = false;
+        if (!SessionData.microphoneShortcutEnabled)
+            return;
         if (wasOff || (SessionData.microphoneShortcutMode === "holdToTalk" && !microphoneShortcutHeld)
             || (SessionData.microphoneShortcutMode === "holdToMute" && microphoneShortcutHeld))
             setMicrophoneShortcutOff(true);
@@ -84,12 +86,15 @@ Singleton {
 
     Connections {
         target: SessionData
+        function onMicrophoneShortcutEnabledChanged() { root.resetMicrophoneShortcutMode(); }
         function onMicrophoneShortcutModeChanged() { root.resetMicrophoneShortcutMode(); }
     }
 
     Connections {
         target: Macqueen
         function onMicrophoneShortcutKeyChanged(pressed) {
+            if (!SessionData.microphoneShortcutEnabled)
+                return;
             const mode = SessionData.microphoneShortcutMode;
             if (pressed) {
                 if (mode === "toggle") {

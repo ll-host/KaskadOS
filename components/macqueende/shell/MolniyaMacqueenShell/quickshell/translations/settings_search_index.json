@@ -373,6 +373,24 @@
     "description": "Automatically determine your location using your IP address"
   },
   {
+    "section": "automaticDateTime",
+    "label": "Automatic Date & Time",
+    "tabIndex": 1,
+    "category": "Time & Weather",
+    "keywords": [
+      "automatic",
+      "clock",
+      "date",
+      "forecast",
+      "internet",
+      "ntp",
+      "sync",
+      "time",
+      "timezone",
+      "weather"
+    ]
+  },
+  {
     "section": "calendarBackend",
     "label": "Calendar Backend",
     "tabIndex": 1,
@@ -393,6 +411,24 @@
       "weather",
       "year"
     ]
+  },
+  {
+    "section": "dateTimeSync",
+    "label": "Date & Time",
+    "tabIndex": 1,
+    "category": "Time & Weather",
+    "keywords": [
+      "automatic",
+      "clock",
+      "date",
+      "forecast",
+      "ntp",
+      "sync",
+      "time",
+      "timezone",
+      "weather"
+    ],
+    "icon": "sync"
   },
   {
     "section": "dateFormat",
@@ -677,6 +713,31 @@
     ],
     "icon": "keyboard",
     "conditionKey": "keybindsAvailable"
+  },
+  {
+    "section": "microphoneShortcutEnabled",
+    "label": "Microphone shortcut",
+    "tabIndex": 2,
+    "category": "Keyboard Shortcuts",
+    "keywords": [
+      "always",
+      "available",
+      "bindings",
+      "button",
+      "control",
+      "controls",
+      "hotkey",
+      "keyboard",
+      "keys",
+      "microphone",
+      "mouse",
+      "mute",
+      "panel",
+      "remain",
+      "shortcut",
+      "shortcuts"
+    ],
+    "description": "Use a key or mouse button to control the microphone. Panel controls always remain available."
   },
   {
     "section": "barConfigurations",
@@ -1289,25 +1350,6 @@
       "workspaces"
     ],
     "description": "Always show a minimum of 3 workspaces, even if fewer are available"
-  },
-  {
-    "section": "_tab_4",
-    "label": "Workspaces",
-    "tabIndex": 4,
-    "category": "Dank Bar",
-    "keywords": [
-      "bar",
-      "dank",
-      "desktop",
-      "desktops",
-      "panel",
-      "statusbar",
-      "topbar",
-      "virtual",
-      "workspace",
-      "workspaces"
-    ],
-    "icon": "view_module"
   },
   {
     "section": "dockAutoHide",
@@ -2421,51 +2463,6 @@
     "icon": "visibility_off"
   },
   {
-    "section": "dankLauncherV2IncludeFilesInAll",
-    "label": "Include Files in All Tab",
-    "tabIndex": 9,
-    "category": "Launcher",
-    "keywords": [
-      "all",
-      "drawer",
-      "dsearch",
-      "file",
-      "files",
-      "include",
-      "indexed",
-      "launcher",
-      "menu",
-      "merge",
-      "results",
-      "start",
-      "tab"
-    ],
-    "description": "Merge indexed file results into the All tab (requires dsearch)."
-  },
-  {
-    "section": "dankLauncherV2IncludeFoldersInAll",
-    "label": "Include Folders in All Tab",
-    "tabIndex": 9,
-    "category": "Launcher",
-    "keywords": [
-      "all",
-      "dirs",
-      "drawer",
-      "dsearch",
-      "folder",
-      "folders",
-      "include",
-      "indexed",
-      "launcher",
-      "menu",
-      "merge",
-      "results",
-      "start",
-      "tab"
-    ],
-    "description": "Merge indexed folder results into the All tab (requires dsearch)."
-  },
-  {
     "section": "launcherLogoColorInvertOnMode",
     "label": "Invert on mode change",
     "tabIndex": 9,
@@ -2710,29 +2707,25 @@
     "tabIndex": 9,
     "category": "Launcher",
     "keywords": [
-      "apps",
       "bar",
-      "beside",
       "chips",
-      "day",
       "drawer",
-      "files",
-      "input",
       "launcher",
-      "light mode",
       "menu",
       "mode",
       "modes",
-      "panel",
       "show",
       "spotlight",
       "start",
-      "statusbar",
       "tabs",
-      "taskbar",
-      "topbar"
+      "переключатели",
+      "поиска",
+      "показывать",
+      "режимов",
+      "рядом",
+      "строкой"
     ],
-    "description": "Show All, Apps, and Files chips beside the Spotlight Bar input."
+    "description": "Показывать переключатели режимов рядом со строкой поиска."
   },
   {
     "section": "dankLauncherV2ShowSourceBadges",
@@ -2831,29 +2824,30 @@
     "tabIndex": 9,
     "category": "Launcher",
     "keywords": [
-      "apps",
       "bar",
-      "beside",
       "chips",
       "day",
       "drawer",
-      "files",
-      "input",
       "launcher",
       "light mode",
       "menu",
       "modes",
       "panel",
-      "show",
       "spotlight",
       "start",
       "statusbar",
       "tabs",
       "taskbar",
-      "topbar"
+      "topbar",
+      "переключатели",
+      "поиска",
+      "показывать",
+      "режимов",
+      "рядом",
+      "строкой"
     ],
     "icon": "search",
-    "description": "Show All, Apps, and Files chips beside the Spotlight Bar input."
+    "description": "Показывать переключатели режимов рядом со строкой поиска."
   },
   {
     "section": "terminalOverride",
@@ -6976,7 +6970,7 @@
       "sleep",
       "suspend"
     ],
-    "description": "Require holding button/key to confirm power off, restart, suspend, hibernate and logout"
+    "description": "Require holding button/key to confirm power off, restart, hibernate and logout"
   },
   {
     "section": "idleSettings",
@@ -7125,7 +7119,7 @@
       "suspend"
     ],
     "icon": "check_circle",
-    "description": "Require holding button/key to confirm power off, restart, suspend, hibernate and logout"
+    "description": "Require holding button/key to confirm power off, restart, hibernate and logout"
   },
   {
     "section": "powerMenu",
@@ -9503,27 +9497,6 @@
     "icon": "settings_ethernet"
   },
   {
-    "section": "networkHotspot",
-    "label": "Hotspot",
-    "tabIndex": 40,
-    "category": "Network",
-    "keywords": [
-      "access point",
-      "connectivity",
-      "hotspot",
-      "network",
-      "online",
-      "optional",
-      "sharing",
-      "ssid",
-      "wi-fi",
-      "wifi",
-      "wireless"
-    ],
-    "icon": "wifi_tethering",
-    "description": "Optional"
-  },
-  {
     "section": "networkSavedWifi",
     "label": "Saved Networks",
     "tabIndex": 40,
@@ -9564,6 +9537,30 @@
       "wireless"
     ],
     "icon": "wifi"
+  },
+  {
+    "section": "networkHotspot",
+    "label": "Точка доступа",
+    "tabIndex": 40,
+    "category": "Network",
+    "keywords": [
+      "access point",
+      "connectivity",
+      "hotspot",
+      "network",
+      "online",
+      "sharing",
+      "ssid",
+      "wi-fi",
+      "wifi",
+      "wireless",
+      "автоматический",
+      "выбор",
+      "доступа",
+      "точка"
+    ],
+    "icon": "wifi_tethering",
+    "description": "Автоматический выбор"
   },
   {
     "section": "regaliaApplicationRoutes",

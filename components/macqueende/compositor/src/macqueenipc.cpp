@@ -66,6 +66,165 @@ Qt::Key physicalLatinKey(quint32 code)
     return keys.value(code, Qt::Key_unknown);
 }
 
+enum class MicrophoneShortcutKind {
+    Invalid,
+    Keyboard,
+    Modifiers,
+    Mouse,
+};
+
+struct ParsedMicrophoneShortcut
+{
+    MicrophoneShortcutKind kind = MicrophoneShortcutKind::Invalid;
+    Qt::KeyboardModifiers modifiers;
+    Qt::Key key = Qt::Key_unknown;
+    quint32 mouseButton = 0;
+    QString normalized;
+};
+
+QString modifierName(const QString &token)
+{
+    if (token.compare(QStringLiteral("Super"), Qt::CaseInsensitive) == 0
+        || token.compare(QStringLiteral("Meta"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Super");
+    }
+    if (token.compare(QStringLiteral("Alt"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Alt");
+    }
+    if (token.compare(QStringLiteral("Ctrl"), Qt::CaseInsensitive) == 0
+        || token.compare(QStringLiteral("Control"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Ctrl");
+    }
+    if (token.compare(QStringLiteral("Shift"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("Shift");
+    }
+    return {};
+}
+
+Qt::KeyboardModifier modifierValue(const QString &name)
+{
+    if (name == QStringLiteral("Super")) {
+        return Qt::MetaModifier;
+    }
+    if (name == QStringLiteral("Alt")) {
+        return Qt::AltModifier;
+    }
+    if (name == QStringLiteral("Ctrl")) {
+        return Qt::ControlModifier;
+    }
+    return Qt::ShiftModifier;
+}
+
+QStringList modifierNames(Qt::KeyboardModifiers modifiers)
+{
+    QStringList names;
+    if (modifiers.testFlag(Qt::MetaModifier)) {
+        names.append(QStringLiteral("Super"));
+    }
+    if (modifiers.testFlag(Qt::AltModifier)) {
+        names.append(QStringLiteral("Alt"));
+    }
+    if (modifiers.testFlag(Qt::ControlModifier)) {
+        names.append(QStringLiteral("Ctrl"));
+    }
+    if (modifiers.testFlag(Qt::ShiftModifier)) {
+        names.append(QStringLiteral("Shift"));
+    }
+    return names;
+}
+
+Qt::KeyboardModifiers rawModifiers(const QSet<quint32> &pressedKeys)
+{
+    Qt::KeyboardModifiers modifiers;
+    if (pressedKeys.contains(KEY_LEFTMETA) || pressedKeys.contains(KEY_RIGHTMETA)) {
+        modifiers |= Qt::MetaModifier;
+    }
+    if (pressedKeys.contains(KEY_LEFTALT) || pressedKeys.contains(KEY_RIGHTALT)) {
+        modifiers |= Qt::AltModifier;
+    }
+    if (pressedKeys.contains(KEY_LEFTCTRL) || pressedKeys.contains(KEY_RIGHTCTRL)) {
+        modifiers |= Qt::ControlModifier;
+    }
+    if (pressedKeys.contains(KEY_LEFTSHIFT) || pressedKeys.contains(KEY_RIGHTSHIFT)) {
+        modifiers |= Qt::ShiftModifier;
+    }
+    return modifiers;
+}
+
+QString mouseButtonName(quint32 nativeButton)
+{
+    if (nativeButton < BTN_MIDDLE || nativeButton > BTN_TASK) {
+        return {};
+    }
+    return QStringLiteral("Mouse %1").arg(nativeButton - BTN_LEFT + 1);
+}
+
+ParsedMicrophoneShortcut parseMicrophoneShortcut(const QString &shortcut)
+{
+    ParsedMicrophoneShortcut parsed;
+    QString portable = shortcut.trimmed();
+    portable.replace(QStringLiteral("Meta"), QStringLiteral("Super"), Qt::CaseInsensitive);
+    if (portable.isEmpty()) {
+        return parsed;
+    }
+
+    QStringList parts = portable.split(QLatin1Char('+'), Qt::SkipEmptyParts);
+    for (QString &part : parts) {
+        part = part.trimmed();
+    }
+
+    Qt::KeyboardModifiers explicitModifiers;
+    int modifierCount = 0;
+    for (const QString &part : parts) {
+        const QString name = modifierName(part);
+        if (name.isEmpty()) {
+            break;
+        }
+        const Qt::KeyboardModifier value = modifierValue(name);
+        if (explicitModifiers.testFlag(value)) {
+            return parsed;
+        }
+        explicitModifiers |= value;
+        ++modifierCount;
+    }
+
+    if (modifierCount == parts.size()) {
+        parsed.kind = MicrophoneShortcutKind::Modifiers;
+        parsed.modifiers = explicitModifiers;
+        parsed.normalized = modifierNames(explicitModifiers).join(QLatin1Char('+'));
+        return parsed;
+    }
+
+    if (modifierCount == parts.size() - 1) {
+        static const QRegularExpression mousePattern(QStringLiteral("^Mouse\\s+([3-8])$"), QRegularExpression::CaseInsensitiveOption);
+        const QRegularExpressionMatch match = mousePattern.match(parts.constLast());
+        if (match.hasMatch()) {
+            const int number = match.captured(1).toInt();
+            parsed.kind = MicrophoneShortcutKind::Mouse;
+            parsed.modifiers = explicitModifiers;
+            parsed.mouseButton = BTN_LEFT + number - 1;
+            QStringList normalized = modifierNames(explicitModifiers);
+            normalized.append(QStringLiteral("Mouse %1").arg(number));
+            parsed.normalized = normalized.join(QLatin1Char('+'));
+            return parsed;
+        }
+    }
+
+    portable.replace(QStringLiteral("Super"), QStringLiteral("Meta"), Qt::CaseInsensitive);
+    const QKeySequence sequence = QKeySequence::fromString(portable, QKeySequence::PortableText);
+    if (sequence.isEmpty() || sequence.count() != 1
+        || sequence[0].key() == Qt::Key_unknown
+        || (sequence[0].key() >= Qt::Key_Shift && sequence[0].key() <= Qt::Key_Meta)) {
+        return parsed;
+    }
+    parsed.kind = MicrophoneShortcutKind::Keyboard;
+    parsed.modifiers = sequence[0].keyboardModifiers();
+    parsed.key = sequence[0].key();
+    parsed.normalized = sequence.toString(QKeySequence::PortableText);
+    parsed.normalized.replace(QStringLiteral("Meta"), QStringLiteral("Super"));
+    return parsed;
+}
+
 QVariantMap geometryData(const RectF &geometry)
 {
     return {
@@ -113,6 +272,7 @@ MacqueenIpc::MacqueenIpc(Workspace *workspace)
     // Tracking physical scan codes here makes the default shortcut independent
     // of the active keyboard layout and of filters which consume modifier keys.
     connect(input(), &InputRedirection::keyStateChanged, this, &MacqueenIpc::handleRawKeyState);
+    input()->installInputEventSpy(this);
 
     QDBusConnection bus = QDBusConnection::sessionBus();
     bus.registerObject(QStringLiteral("/org/macqueen/Compositor1"),
@@ -642,28 +802,24 @@ QString MacqueenIpc::microphoneShortcut() const
 
 bool MacqueenIpc::setMicrophoneShortcut(const QString &shortcut)
 {
-    QString portable = shortcut.trimmed();
-    portable.replace(QStringLiteral("Super"), QStringLiteral("Meta"), Qt::CaseInsensitive);
-    const QKeySequence sequence = QKeySequence::fromString(portable, QKeySequence::PortableText);
-    if (sequence.isEmpty() || sequence.count() != 1
-        || sequence[0].key() == Qt::Key_unknown
-        || (sequence[0].key() >= Qt::Key_Shift && sequence[0].key() <= Qt::Key_Meta)) {
+    const ParsedMicrophoneShortcut parsed = parseMicrophoneShortcut(shortcut);
+    if (parsed.kind == MicrophoneShortcutKind::Invalid) {
         return false;
     }
-    QString normalized = sequence.toString(QKeySequence::PortableText);
-    normalized.replace(QStringLiteral("Meta"), QStringLiteral("Super"));
-    if (m_microphoneShortcut == normalized) {
+    if (m_microphoneShortcut == parsed.normalized) {
         return true;
     }
-    if (m_microphonePressedKey != 0) {
+    if (m_microphonePressedKey != 0 || m_microphonePressedMouseButton != 0 || m_microphoneModifierShortcutPressed) {
         m_microphonePressedKey = 0;
+        m_microphonePressedMouseButton = 0;
+        m_microphoneModifierShortcutPressed = false;
         Q_EMIT microphoneShortcutKeyChanged(false);
     }
-    m_microphoneShortcut = normalized;
+    m_microphoneShortcut = parsed.normalized;
     KConfigGroup group(kwinApp()->config(), QStringLiteral("MacqueenMicrophone"));
-    group.writeEntry("Shortcut", normalized);
+    group.writeEntry("Shortcut", parsed.normalized);
     group.sync();
-    Q_EMIT microphoneShortcutChanged(normalized);
+    Q_EMIT microphoneShortcutChanged(parsed.normalized);
     return true;
 }
 
@@ -678,8 +834,10 @@ void MacqueenIpc::setShortcutCaptureActive(bool active)
     // Alt+Shift) consumes part of the new combination before Quickshell sees it.
     m_workspace->disableGlobalShortcutsForClient(active);
     m_screenshotAction->setEnabled(!active);
-    if (active && m_microphonePressedKey != 0) {
+    if (active && (m_microphonePressedKey != 0 || m_microphonePressedMouseButton != 0 || m_microphoneModifierShortcutPressed)) {
         m_microphonePressedKey = 0;
+        m_microphonePressedMouseButton = 0;
+        m_microphoneModifierShortcutPressed = false;
         Q_EMIT microphoneShortcutKeyChanged(false);
     }
     if (active) {
@@ -758,6 +916,41 @@ bool MacqueenIpc::toggleHoveredWindowBorder()
     return false;
 }
 
+void MacqueenIpc::pointerButton(PointerButtonEvent *event)
+{
+    const QString buttonName = mouseButtonName(event->nativeButton);
+    if (m_shortcutCaptureActive && event->state == PointerButtonState::Pressed && !buttonName.isEmpty()) {
+        m_captureSawNonModifier = true;
+        QStringList shortcut = modifierNames(rawModifiers(m_pressedRawKeys));
+        shortcut.append(buttonName);
+        Q_EMIT shortcutCaptured(shortcut.join(QLatin1Char('+')));
+        return;
+    }
+
+    const ParsedMicrophoneShortcut microphoneShortcut = parseMicrophoneShortcut(m_microphoneShortcut);
+    if (microphoneShortcut.kind != MicrophoneShortcutKind::Mouse) {
+        return;
+    }
+
+    if (m_microphonePressedMouseButton != 0
+        && event->state == PointerButtonState::Released
+        && event->nativeButton == m_microphonePressedMouseButton) {
+        m_microphonePressedMouseButton = 0;
+        Q_EMIT microphoneShortcutKeyChanged(false);
+        return;
+    }
+
+    if (!m_shortcutCaptureActive
+        && m_microphonePressedMouseButton == 0
+        && event->state == PointerButtonState::Pressed
+        && event->nativeButton == microphoneShortcut.mouseButton
+        && rawModifiers(m_pressedRawKeys) == microphoneShortcut.modifiers
+        && !waylandServer()->isKeyboardShortcutsInhibited()) {
+        m_microphonePressedMouseButton = event->nativeButton;
+        Q_EMIT microphoneShortcutKeyChanged(true);
+    }
+}
+
 void MacqueenIpc::handleRawKeyState(quint32 keyCode, KeyboardKeyState state)
 {
     const bool modifierKey = keyCode == KEY_LEFTSHIFT || keyCode == KEY_RIGHTSHIFT
@@ -784,47 +977,50 @@ void MacqueenIpc::handleRawKeyState(quint32 keyCode, KeyboardKeyState state)
         m_recentRawKeyEvents.removeFirst();
     }
 
-    if (m_microphonePressedKey != 0 && state == KeyboardKeyState::Released
+    const ParsedMicrophoneShortcut microphoneShortcut = parseMicrophoneShortcut(m_microphoneShortcut);
+    const Qt::KeyboardModifiers activeModifiers = rawModifiers(m_pressedRawKeys);
+
+    if (microphoneShortcut.kind == MicrophoneShortcutKind::Mouse
+        && m_microphonePressedMouseButton != 0
+        && activeModifiers != microphoneShortcut.modifiers) {
+        m_microphonePressedMouseButton = 0;
+        Q_EMIT microphoneShortcutKeyChanged(false);
+    }
+
+    if (microphoneShortcut.kind == MicrophoneShortcutKind::Modifiers) {
+        if (m_microphoneModifierShortcutPressed && activeModifiers != microphoneShortcut.modifiers) {
+            m_microphoneModifierShortcutPressed = false;
+            Q_EMIT microphoneShortcutKeyChanged(false);
+        } else if (!m_shortcutCaptureActive
+                   && !m_microphoneModifierShortcutPressed
+                   && state == KeyboardKeyState::Pressed
+                   && activeModifiers == microphoneShortcut.modifiers
+                   && !waylandServer()->isKeyboardShortcutsInhibited()) {
+            m_microphoneModifierShortcutPressed = true;
+            Q_EMIT microphoneShortcutKeyChanged(true);
+        }
+    }
+
+    if (microphoneShortcut.kind == MicrophoneShortcutKind::Keyboard
+        && m_microphonePressedKey != 0
+        && state == KeyboardKeyState::Released
         && (keyCode == m_microphonePressedKey || modifierKey)) {
-        QString portable = m_microphoneShortcut;
-        portable.replace(QStringLiteral("Super"), QStringLiteral("Meta"), Qt::CaseInsensitive);
-        const QKeySequence sequence = QKeySequence::fromString(portable, QKeySequence::PortableText);
-        const Qt::KeyboardModifiers activeModifiers =
-            (m_pressedRawKeys.contains(KEY_LEFTSHIFT) || m_pressedRawKeys.contains(KEY_RIGHTSHIFT) ? Qt::ShiftModifier : Qt::NoModifier)
-            | (m_pressedRawKeys.contains(KEY_LEFTMETA) || m_pressedRawKeys.contains(KEY_RIGHTMETA) ? Qt::MetaModifier : Qt::NoModifier)
-            | (m_pressedRawKeys.contains(KEY_LEFTCTRL) || m_pressedRawKeys.contains(KEY_RIGHTCTRL) ? Qt::ControlModifier : Qt::NoModifier)
-            | (m_pressedRawKeys.contains(KEY_LEFTALT) || m_pressedRawKeys.contains(KEY_RIGHTALT) ? Qt::AltModifier : Qt::NoModifier);
-        if (keyCode == m_microphonePressedKey || sequence.isEmpty()
-            || activeModifiers != sequence[0].keyboardModifiers()) {
+        if (keyCode == m_microphonePressedKey || activeModifiers != microphoneShortcut.modifiers) {
             m_microphonePressedKey = 0;
             Q_EMIT microphoneShortcutKeyChanged(false);
         }
     }
-    if (!m_shortcutCaptureActive && m_microphonePressedKey == 0
+    if (microphoneShortcut.kind == MicrophoneShortcutKind::Keyboard
+        && !m_shortcutCaptureActive && m_microphonePressedKey == 0
         && state == KeyboardKeyState::Pressed && !modifierKey
         && !waylandServer()->isKeyboardShortcutsInhibited()) {
-        QString portable = m_microphoneShortcut;
-        portable.replace(QStringLiteral("Super"), QStringLiteral("Meta"), Qt::CaseInsensitive);
-        const QKeySequence sequence = QKeySequence::fromString(portable, QKeySequence::PortableText);
-        if (!sequence.isEmpty()) {
-            const QKeyCombination chord = sequence[0];
-            const Qt::Key actualKey = input()->keyboard()->xkb()->toQtKey(
-                input()->keyboard()->xkb()->toKeysym(keyCode), keyCode);
-            const Qt::Key latinKey = physicalLatinKey(keyCode);
-            const bool shift = m_pressedRawKeys.contains(KEY_LEFTSHIFT) || m_pressedRawKeys.contains(KEY_RIGHTSHIFT);
-            const bool meta = m_pressedRawKeys.contains(KEY_LEFTMETA) || m_pressedRawKeys.contains(KEY_RIGHTMETA);
-            const bool control = m_pressedRawKeys.contains(KEY_LEFTCTRL) || m_pressedRawKeys.contains(KEY_RIGHTCTRL);
-            const bool alt = m_pressedRawKeys.contains(KEY_LEFTALT) || m_pressedRawKeys.contains(KEY_RIGHTALT);
-            const Qt::KeyboardModifiers modifiers =
-                (shift ? Qt::ShiftModifier : Qt::NoModifier)
-                | (meta ? Qt::MetaModifier : Qt::NoModifier)
-                | (control ? Qt::ControlModifier : Qt::NoModifier)
-                | (alt ? Qt::AltModifier : Qt::NoModifier);
-            if ((actualKey == chord.key() || latinKey == chord.key())
-                && modifiers == chord.keyboardModifiers()) {
-                m_microphonePressedKey = keyCode;
-                Q_EMIT microphoneShortcutKeyChanged(true);
-            }
+        const Qt::Key actualKey = input()->keyboard()->xkb()->toQtKey(
+            input()->keyboard()->xkb()->toKeysym(keyCode), keyCode);
+        const Qt::Key latinKey = physicalLatinKey(keyCode);
+        if ((actualKey == microphoneShortcut.key || latinKey == microphoneShortcut.key)
+            && activeModifiers == microphoneShortcut.modifiers) {
+            m_microphonePressedKey = keyCode;
+            Q_EMIT microphoneShortcutKeyChanged(true);
         }
     }
 
@@ -873,7 +1069,7 @@ void MacqueenIpc::handleRawKeyState(quint32 keyCode, KeyboardKeyState state)
         if (m_captureModifierKeys.contains(KEY_LEFTSHIFT) || m_captureModifierKeys.contains(KEY_RIGHTSHIFT)) {
             modifiers.append(QStringLiteral("Shift"));
         }
-        if (modifiers.size() >= 2) {
+        if (!modifiers.isEmpty()) {
             Q_EMIT shortcutCaptured(modifiers.join(QLatin1Char('+')));
         }
         m_captureModifierKeys.clear();

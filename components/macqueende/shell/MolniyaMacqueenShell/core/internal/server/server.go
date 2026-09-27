@@ -29,6 +29,7 @@ import (
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/sysupdate"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/tailscale"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/thememode"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/timedate"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/trayrecovery"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/wallpaper"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/wayland"
@@ -79,6 +80,7 @@ var sysUpdateManager *sysupdate.Manager
 var softwareManager *software.Manager
 var windowsAppsManager *windowsapps.Manager
 var filesManager *files.Manager
+var timeDateManager *timedate.Manager
 var geoClientInstance geolocation.Client
 
 const dbusClientID = "dms-dbus-client"
@@ -318,6 +320,16 @@ func InitializeFilesManager() {
 	log.Info("File manager backend initialized")
 }
 
+func InitializeTimeDateManager() error {
+	manager, err := timedate.NewManager()
+	if err != nil {
+		return err
+	}
+	timeDateManager = manager
+	log.Info("Time synchronization manager initialized")
+	return nil
+}
+
 func InitializeWindowsAppsManager() error {
 	manager, err := windowsapps.NewManager()
 	if err != nil {
@@ -427,6 +439,10 @@ func getCapabilities() Capabilities {
 		caps = append(caps, "files")
 	}
 
+	if timeDateManager != nil {
+		caps = append(caps, "timedate")
+	}
+
 	return Capabilities{Capabilities: caps}
 }
 
@@ -507,6 +523,10 @@ func getServerInfo() ServerInfo {
 
 	if filesManager != nil {
 		caps = append(caps, "files")
+	}
+
+	if timeDateManager != nil {
+		caps = append(caps, "timedate")
 	}
 
 	return ServerInfo{
@@ -1295,6 +1315,9 @@ func cleanupManagers() {
 	if sysUpdateManager != nil {
 		sysUpdateManager.Close()
 	}
+	if timeDateManager != nil {
+		timeDateManager.Close()
+	}
 	if geoClientInstance != nil {
 		geoClientInstance.Close()
 	}
@@ -1677,6 +1700,9 @@ func (s *Server) Serve(printDocs bool) error {
 	}
 	InitializeSoftwareManager()
 	InitializeFilesManager()
+	if err := InitializeTimeDateManager(); err != nil {
+		log.Warnf("Time synchronization manager unavailable: %v", err)
+	}
 	if err := InitializeWindowsAppsManager(); err != nil {
 		log.Warnf("Windows applications manager unavailable: %v", err)
 	}

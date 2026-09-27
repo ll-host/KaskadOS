@@ -206,6 +206,7 @@ Singleton {
     property var deviceMaxVolumes: ({})
     property var hiddenOutputDeviceNames: []
     property var hiddenInputDeviceNames: []
+    property bool microphoneShortcutEnabled: true
     property string microphoneShortcutMode: "toggle"
 
     property string locale: ""

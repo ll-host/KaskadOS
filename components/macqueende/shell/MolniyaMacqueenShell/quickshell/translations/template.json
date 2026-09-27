@@ -203,20 +203,6 @@
     "comment": "task count next to a date, %1 is the number of tasks"
   },
   {
-    "term": "%1 update",
-    "translation": "",
-    "context": "%1 update",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "%1 updates",
-    "translation": "",
-    "context": "%1 updates",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "%1 variants",
     "translation": "",
     "context": "%1 variants",
@@ -399,13 +385,6 @@
     "comment": "wallpaper interval"
   },
   {
-    "term": "10-bit Color",
-    "translation": "",
-    "context": "10-bit Color",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "12 hours",
     "translation": "",
     "context": "12 hours",
@@ -474,13 +453,6 @@
     "context": "2 seconds",
     "reference": "",
     "comment": ""
-  },
-  {
-    "term": "2.4 GHz",
-    "translation": "",
-    "context": "2.4 GHz",
-    "reference": "",
-    "comment": "hotspot WiFi band option"
   },
   {
     "term": "20 minutes",
@@ -623,13 +595,6 @@
     "comment": "wallpaper interval"
   },
   {
-    "term": "5 GHz",
-    "translation": "",
-    "context": "5 GHz",
-    "reference": "",
-    "comment": "hotspot WiFi band option"
-  },
-  {
     "term": "5 min before",
     "translation": "",
     "context": "5 min before",
@@ -756,13 +721,6 @@
     "comment": ""
   },
   {
-    "term": "AUR helpers are interactive — see the terminal window for prompts. This popout will return to idle when the upgrade exits.",
-    "translation": "",
-    "context": "AUR helpers are interactive — see the terminal window for prompts. This popout will return to idle when the upgrade exits.",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Aborted",
     "translation": "",
     "context": "Aborted",
@@ -773,6 +731,13 @@
     "term": "Acceleration Profile",
     "translation": "",
     "context": "Acceleration Profile",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Accent Color",
+    "translation": "",
+    "context": "Accent Color",
     "reference": "",
     "comment": ""
   },
@@ -980,6 +945,13 @@
     "comment": ""
   },
   {
+    "term": "Add Bookmark",
+    "translation": "",
+    "context": "Add Bookmark",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Add Desktop Widget",
     "translation": "",
     "context": "Add Desktop Widget",
@@ -990,6 +962,13 @@
     "term": "Add Entry",
     "translation": "",
     "context": "Add Entry",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Add Image",
+    "translation": "",
+    "context": "Add Image",
     "reference": "",
     "comment": ""
   },
@@ -1673,9 +1652,9 @@
     "comment": ""
   },
   {
-    "term": "Apps",
+    "term": "Applying…",
     "translation": "",
-    "context": "Apps",
+    "context": "Applying…",
     "reference": "",
     "comment": ""
   },
@@ -1753,13 +1732,6 @@
     "term": "At Startup",
     "translation": "",
     "context": "At Startup",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "At least one output must remain enabled",
-    "translation": "",
-    "context": "At least one output must remain enabled",
     "reference": "",
     "comment": ""
   },
@@ -1869,13 +1841,6 @@
     "comment": ""
   },
   {
-    "term": "Authenticate",
-    "translation": "",
-    "context": "Authenticate",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Authentication",
     "translation": "",
     "context": "Authentication",
@@ -1957,7 +1922,7 @@
     "translation": "",
     "context": "Auto",
     "reference": "",
-    "comment": "automatic PAM authentication source option | calendar backend option | hotspot device or band option | theme category option"
+    "comment": "automatic PAM authentication source option | calendar backend option | theme category option"
   },
   {
     "term": "Auto (Bar-aware)",
@@ -1965,13 +1930,6 @@
     "context": "Auto (Bar-aware)",
     "reference": "",
     "comment": "bar shadow direction source option | shadow direction option"
-  },
-  {
-    "term": "Auto (Wide)",
-    "translation": "",
-    "context": "Auto (Wide)",
-    "reference": "",
-    "comment": ""
   },
   {
     "term": "Auto Compositor Gaps",
@@ -2159,6 +2117,20 @@
     "term": "Automatic Cycling",
     "translation": "",
     "context": "Automatic Cycling",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Automatic Date & Time",
+    "translation": "",
+    "context": "Automatic Date & Time",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Automatic time synchronization is unavailable",
+    "translation": "",
+    "context": "Automatic time synchronization is unavailable",
     "reference": "",
     "comment": ""
   },
@@ -2387,13 +2359,6 @@
     "comment": ""
   },
   {
-    "term": "Band",
-    "translation": "",
-    "context": "Band",
-    "reference": "",
-    "comment": "hotspot WiFi band field label"
-  },
-  {
     "term": "Bar",
     "translation": "",
     "context": "Bar",
@@ -2562,13 +2527,6 @@
     "comment": ""
   },
   {
-    "term": "Bit Depth",
-    "translation": "",
-    "context": "Bit Depth",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Black",
     "translation": "",
     "context": "Black",
@@ -2700,6 +2658,20 @@
     "context": "Bold",
     "reference": "",
     "comment": "font weight"
+  },
+  {
+    "term": "Bookmark Color",
+    "translation": "",
+    "context": "Bookmark Color",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Bookmarks",
+    "translation": "",
+    "context": "Bookmarks",
+    "reference": "",
+    "comment": ""
   },
   {
     "term": "Border",
@@ -2993,7 +2965,7 @@
     "translation": "",
     "context": "Cancel",
     "reference": "",
-    "comment": "cancel hotspot editing action"
+    "comment": ""
   },
   {
     "term": "Cancel all jobs for \"%1\"?",
@@ -3013,13 +2985,6 @@
     "term": "Cannot delete the only administrator",
     "translation": "",
     "context": "Cannot delete the only administrator",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Cannot disable the only output",
-    "translation": "",
-    "context": "Cannot disable the only output",
     "reference": "",
     "comment": ""
   },
@@ -3090,13 +3055,6 @@
     "term": "Center Section",
     "translation": "",
     "context": "Center Section",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Center Single Column",
-    "translation": "",
-    "context": "Center Single Column",
     "reference": "",
     "comment": ""
   },
@@ -3220,9 +3178,9 @@
     "comment": ""
   },
   {
-    "term": "Checking for updates...",
+    "term": "Checking system time service…",
     "translation": "",
-    "context": "Checking for updates...",
+    "context": "Checking system time service…",
     "reference": "",
     "comment": ""
   },
@@ -3239,6 +3197,13 @@
     "context": "Checking...",
     "reference": "",
     "comment": "greeter status loading"
+  },
+  {
+    "term": "Checklist",
+    "translation": "",
+    "context": "Checklist",
+    "reference": "",
+    "comment": ""
   },
   {
     "term": "Choose Color",
@@ -3486,6 +3451,13 @@
     "comment": ""
   },
   {
+    "term": "Clear Text Color",
+    "translation": "",
+    "context": "Clear Text Color",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Clear all history when server starts",
     "translation": "",
     "context": "Clear all history when server starts",
@@ -3717,20 +3689,6 @@
     "comment": ""
   },
   {
-    "term": "Color Gamut",
-    "translation": "",
-    "context": "Color Gamut",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Color Management",
-    "translation": "",
-    "context": "Color Management",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Color Mode",
     "translation": "",
     "context": "Color Mode",
@@ -3916,20 +3874,6 @@
     "term": "Compositor",
     "translation": "",
     "context": "Compositor",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Compositor Settings",
-    "translation": "",
-    "context": "Compositor Settings",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Config Format",
-    "translation": "",
-    "context": "Config Format",
     "reference": "",
     "comment": ""
   },
@@ -4221,6 +4165,20 @@
     "comment": "matugen color scheme option"
   },
   {
+    "term": "Continue Lists Automatically",
+    "translation": "",
+    "context": "Continue Lists Automatically",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Continue numbering, bullets and checkboxes after Enter",
+    "translation": "",
+    "context": "Continue numbering, bullets and checkboxes after Enter",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Contrast",
     "translation": "",
     "context": "Contrast",
@@ -4424,6 +4382,13 @@
     "comment": ""
   },
   {
+    "term": "Could not copy image",
+    "translation": "",
+    "context": "Could not copy image",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Could not download this wallpaper",
     "translation": "",
     "context": "Could not download this wallpaper",
@@ -4490,6 +4455,13 @@
     "term": "Create a new %1 session (^N)",
     "translation": "",
     "context": "Create a new %1 session (^N)",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Create folder",
+    "translation": "",
+    "context": "Create folder",
     "reference": "",
     "comment": ""
   },
@@ -4597,13 +4569,6 @@
     "context": "Ctrl+Tab: Switch Tabs • Ctrl+S: Pin/Unpin • Shift+Enter: Paste • Shift+Del: Clear All • F10: Help • Esc: Close",
     "reference": "",
     "comment": ""
-  },
-  {
-    "term": "Current",
-    "translation": "",
-    "context": "Current",
-    "reference": "",
-    "comment": "notification center tab"
   },
   {
     "term": "Current Locale",
@@ -4907,6 +4872,13 @@
     "comment": ""
   },
   {
+    "term": "Cut",
+    "translation": "",
+    "context": "Cut",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "DDC/CI monitor",
     "translation": "",
     "context": "DDC/CI monitor",
@@ -4924,13 +4896,6 @@
     "term": "DMS Chooser",
     "translation": "",
     "context": "DMS Chooser",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "DMS Settings",
-    "translation": "",
-    "context": "DMS Settings",
     "reference": "",
     "comment": ""
   },
@@ -5103,6 +5068,13 @@
     "comment": ""
   },
   {
+    "term": "Date & Time",
+    "translation": "",
+    "context": "Date & Time",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Date Format",
     "translation": "",
     "context": "Date Format",
@@ -5225,13 +5197,6 @@
     "term": "Default Opens",
     "translation": "",
     "context": "Default Opens",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Default Width (%)",
-    "translation": "",
-    "context": "Default Width (%)",
     "reference": "",
     "comment": ""
   },
@@ -5453,13 +5418,6 @@
     "comment": ""
   },
   {
-    "term": "Desktop background images",
-    "translation": "",
-    "context": "Desktop background images",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Details for \"%1\"",
     "translation": "",
     "context": "Details for \"%1\"",
@@ -5485,7 +5443,7 @@
     "translation": "",
     "context": "Device",
     "reference": "",
-    "comment": "hotspot WiFi device field label"
+    "comment": ""
   },
   {
     "term": "Device connections",
@@ -5572,23 +5530,9 @@
     "comment": ""
   },
   {
-    "term": "Disable Built-in Wallpapers",
-    "translation": "",
-    "context": "Disable Built-in Wallpapers",
-    "reference": "",
-    "comment": "wallpaper settings disable toggle"
-  },
-  {
     "term": "Disable History Persistence",
     "translation": "",
     "context": "Disable History Persistence",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Disable Output",
-    "translation": "",
-    "context": "Disable Output",
     "reference": "",
     "comment": ""
   },
@@ -5817,9 +5761,16 @@
     "comment": ""
   },
   {
-    "term": "Display configuration is not available. WLR output management protocol not supported.",
+    "term": "Display configuration failed",
     "translation": "",
-    "context": "Display configuration is not available. WLR output management protocol not supported.",
+    "context": "Display configuration failed",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Display configuration is not available. The Macqueen monitor service is not connected.",
+    "translation": "",
+    "context": "Display configuration is not available. The Macqueen monitor service is not connected.",
     "reference": "",
     "comment": ""
   },
@@ -5855,13 +5806,6 @@
     "term": "Display power menu actions in a grid instead of a list",
     "translation": "",
     "context": "Display power menu actions in a grid instead of a list",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Display setup failed",
-    "translation": "",
-    "context": "Display setup failed",
     "reference": "",
     "comment": ""
   },
@@ -5992,23 +5936,9 @@
     "comment": ""
   },
   {
-    "term": "Download and apply",
-    "translation": "",
-    "context": "Download and apply",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Download measurement failed because the connection was interrupted",
     "translation": "",
     "context": "Download measurement failed because the connection was interrupted",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Downloading…",
-    "translation": "",
-    "context": "Downloading…",
     "reference": "",
     "comment": ""
   },
@@ -6227,7 +6157,7 @@
     "translation": "",
     "context": "Edit",
     "reference": "",
-    "comment": "edit hotspot action"
+    "comment": ""
   },
   {
     "term": "Edit App",
@@ -6310,13 +6240,6 @@
     "term": "Emulate middle click by pressing left and right buttons",
     "translation": "",
     "context": "Emulate middle click by pressing left and right buttons",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Enable 10-bit color depth for wider color gamut and HDR support",
-    "translation": "",
-    "context": "Enable 10-bit color depth for wider color gamut and HDR support",
     "reference": "",
     "comment": ""
   },
@@ -6473,6 +6396,13 @@
     "context": "Enabled",
     "reference": "",
     "comment": "bluetooth status"
+  },
+  {
+    "term": "Enabled — waiting for synchronization%1",
+    "translation": "",
+    "context": "Enabled — waiting for synchronization%1",
+    "reference": "",
+    "comment": ""
   },
   {
     "term": "Enabled, waiting for the engine",
@@ -6776,13 +6706,6 @@
     "comment": "Tailscale exit node selector label"
   },
   {
-    "term": "Experimental Feature",
-    "translation": "",
-    "context": "Experimental Feature",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Explore",
     "translation": "",
     "context": "Explore",
@@ -6816,13 +6739,6 @@
     "context": "Extend battery life",
     "reference": "",
     "comment": "power profile description"
-  },
-  {
-    "term": "External Wallpaper Management",
-    "translation": "",
-    "context": "External Wallpaper Management",
-    "reference": "",
-    "comment": "wallpaper settings external management"
   },
   {
     "term": "Extra Arguments",
@@ -7392,27 +7308,6 @@
     "comment": ""
   },
   {
-    "term": "Failed to write outputs config.",
-    "translation": "",
-    "context": "Failed to write outputs config.",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Failed to write temp file for validation",
-    "translation": "",
-    "context": "Failed to write temp file for validation",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Failed: %1",
-    "translation": "",
-    "context": "Failed: %1",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Features",
     "translation": "",
     "context": "Features",
@@ -7637,13 +7532,6 @@
     "comment": ""
   },
   {
-    "term": "Flatpak",
-    "translation": "",
-    "context": "Flatpak",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Flipped",
     "translation": "",
     "context": "Flipped",
@@ -7745,13 +7633,6 @@
     "term": "Focus Ring Off",
     "translation": "",
     "context": "Focus Ring Off",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Focus at Startup",
-    "translation": "",
-    "context": "Focus at Startup",
     "reference": "",
     "comment": ""
   },
@@ -7938,13 +7819,6 @@
     "comment": "For editing plain text files"
   },
   {
-    "term": "Force HDR",
-    "translation": "",
-    "context": "Force HDR",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Force Kill (SIGKILL)",
     "translation": "",
     "context": "Force Kill (SIGKILL)",
@@ -7962,13 +7836,6 @@
     "term": "Force RGBX",
     "translation": "",
     "context": "Force RGBX",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Force Wide Color",
-    "translation": "",
-    "context": "Force Wide Color",
     "reference": "",
     "comment": ""
   },
@@ -8176,13 +8043,6 @@
     "comment": ""
   },
   {
-    "term": "Fullscreen Only",
-    "translation": "",
-    "context": "Fullscreen Only",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Fully Charged",
     "translation": "",
     "context": "Fully Charged",
@@ -8249,13 +8109,6 @@
     "term": "Gamma Control",
     "translation": "",
     "context": "Gamma Control",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Gamma control not available. Requires DMS API v6+.",
-    "translation": "",
-    "context": "Gamma control not available. Requires DMS API v6+.",
     "reference": "",
     "comment": ""
   },
@@ -8554,27 +8407,6 @@
     "comment": ""
   },
   {
-    "term": "HDR (EDID)",
-    "translation": "",
-    "context": "HDR (EDID)",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "HDR Tone Mapping",
-    "translation": "",
-    "context": "HDR Tone Mapping",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "HDR mode is experimental. Verify your monitor supports HDR before enabling.",
-    "translation": "",
-    "context": "HDR mode is experimental. Verify your monitor supports HDR before enabling.",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "HSV",
     "translation": "",
     "context": "HSV",
@@ -8608,6 +8440,13 @@
     "context": "Handles mailto links",
     "reference": "",
     "comment": "Handles mailto links"
+  },
+  {
+    "term": "Heading",
+    "translation": "",
+    "context": "Heading",
+    "reference": "",
+    "comment": ""
   },
   {
     "term": "Health",
@@ -8848,13 +8687,6 @@
     "comment": ""
   },
   {
-    "term": "History",
-    "translation": "",
-    "context": "History",
-    "reference": "",
-    "comment": "notification center tab"
-  },
-  {
     "term": "History Retention",
     "translation": "",
     "context": "History Retention",
@@ -8932,13 +8764,6 @@
     "comment": "system info label"
   },
   {
-    "term": "Hot Corners",
-    "translation": "",
-    "context": "Hot Corners",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Hotkey overlay title (optional)",
     "translation": "",
     "context": "Hotkey overlay title (optional)",
@@ -8950,7 +8775,7 @@
     "translation": "",
     "context": "Hotspot",
     "reference": "",
-    "comment": "hotspot control label | hotspot settings card title"
+    "comment": "hotspot control label"
   },
   {
     "term": "Hotspot activation failed.",
@@ -8958,13 +8783,6 @@
     "context": "Hotspot activation failed.",
     "reference": "",
     "comment": "generic hotspot activation failure message"
-  },
-  {
-    "term": "Hotspot name",
-    "translation": "",
-    "context": "Hotspot name",
-    "reference": "",
-    "comment": "hotspot SSID field label"
   },
   {
     "term": "Hotspot saved",
@@ -9233,13 +9051,6 @@
     "comment": ""
   },
   {
-    "term": "Ignore this package",
-    "translation": "",
-    "context": "Ignore this package",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Ignored (%1)",
     "translation": "",
     "context": "Ignored (%1)",
@@ -9282,6 +9093,13 @@
     "comment": "Image Viewer"
   },
   {
+    "term": "Image added to document assets",
+    "translation": "",
+    "context": "Image added to document assets",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Image copied to clipboard",
     "translation": "",
     "context": "Image copied to clipboard",
@@ -9317,23 +9135,9 @@
     "comment": ""
   },
   {
-    "term": "Include Files in All Tab",
-    "translation": "",
-    "context": "Include Files in All Tab",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Include Flatpak updates",
     "translation": "",
     "context": "Include Flatpak updates",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Include Folders in All Tab",
-    "translation": "",
-    "context": "Include Folders in All Tab",
     "reference": "",
     "comment": ""
   },
@@ -9405,7 +9209,7 @@
     "translation": "",
     "context": "Inherit",
     "reference": "",
-    "comment": "inherit from global setting"
+    "comment": ""
   },
   {
     "term": "Inherit Global (Default)",
@@ -9632,13 +9436,6 @@
     "comment": ""
   },
   {
-    "term": "Invalid configuration",
-    "translation": "",
-    "context": "Invalid configuration",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Invalid package name — letters, digits and @._+:- only.",
     "translation": "",
     "context": "Invalid package name — letters, digits and @._+:- only.",
@@ -9677,6 +9474,13 @@
     "term": "Isolate Displays",
     "translation": "",
     "context": "Isolate Displays",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Italic",
+    "translation": "",
+    "context": "Italic",
     "reference": "",
     "comment": ""
   },
@@ -10010,13 +9814,6 @@
     "comment": ""
   },
   {
-    "term": "Layout Overrides",
-    "translation": "",
-    "context": "Layout Overrides",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Left",
     "translation": "",
     "context": "Left",
@@ -10041,6 +9838,13 @@
     "term": "Left-Handed Mode",
     "translation": "",
     "context": "Left-Handed Mode",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Letters, modifier keys, combinations, and mouse buttons 3–8 are supported.",
+    "translation": "",
+    "context": "Letters, modifier keys, combinations, and mouse buttons 3–8 are supported.",
     "reference": "",
     "comment": ""
   },
@@ -10203,7 +10007,7 @@
     "translation": "",
     "context": "Loading...",
     "reference": "",
-    "comment": "hotspot password loading status"
+    "comment": ""
   },
   {
     "term": "Local",
@@ -10416,6 +10220,13 @@
     "comment": ""
   },
   {
+    "term": "Macqueen rejected the requested monitor configuration.",
+    "translation": "",
+    "context": "Macqueen rejected the requested monitor configuration.",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Mail",
     "translation": "",
     "context": "Mail",
@@ -10559,6 +10370,13 @@
     "term": "Margin",
     "translation": "",
     "context": "Margin",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Markdown Preview",
+    "translation": "",
+    "context": "Markdown Preview",
     "reference": "",
     "comment": ""
   },
@@ -10983,20 +10801,6 @@
     "comment": ""
   },
   {
-    "term": "Merge indexed file results into the All tab (requires dsearch).",
-    "translation": "",
-    "context": "Merge indexed file results into the All tab (requires dsearch).",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Merge indexed folder results into the All tab (requires dsearch).",
-    "translation": "",
-    "context": "Merge indexed folder results into the All tab (requires dsearch).",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Message Content",
     "translation": "",
     "context": "Message Content",
@@ -11028,6 +10832,13 @@
     "term": "Microphone settings",
     "translation": "",
     "context": "Microphone settings",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Microphone shortcut",
+    "translation": "",
+    "context": "Microphone shortcut",
     "reference": "",
     "comment": ""
   },
@@ -11081,13 +10892,6 @@
     "comment": ""
   },
   {
-    "term": "Mirror Display",
-    "translation": "",
-    "context": "Mirror Display",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Missing Environment Variables",
     "translation": "",
     "context": "Missing Environment Variables",
@@ -11126,13 +10930,6 @@
     "term": "Model",
     "translation": "",
     "context": "Model",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Modified",
-    "translation": "",
-    "context": "Modified",
     "reference": "",
     "comment": ""
   },
@@ -11233,13 +11030,6 @@
     "context": "Mount Points",
     "reference": "",
     "comment": "mount points header in system monitor"
-  },
-  {
-    "term": "Mountains, space, minimalism…",
-    "translation": "",
-    "context": "Mountains, space, minimalism…",
-    "reference": "",
-    "comment": ""
   },
   {
     "term": "Mouse & Touchpad",
@@ -11613,9 +11403,16 @@
     "comment": "greeter feature card description"
   },
   {
-    "term": "Night mode failed: DMS gamma control not available",
+    "term": "Night mode is not available in Macqueen",
     "translation": "",
-    "context": "Night mode failed: DMS gamma control not available",
+    "context": "Night mode is not available in Macqueen",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Night mode is not available. Macqueen Night Light support is required.",
+    "translation": "",
+    "context": "Night mode is not available. Macqueen Night Light support is required.",
     "reference": "",
     "comment": ""
   },
@@ -12236,13 +12033,6 @@
     "comment": ""
   },
   {
-    "term": "No supported package manager found.",
-    "translation": "",
-    "context": "No supported package manager found.",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "No themes found",
     "translation": "",
     "context": "No themes found",
@@ -12586,6 +12376,13 @@
     "comment": ""
   },
   {
+    "term": "Numbered List",
+    "translation": "",
+    "context": "Numbered List",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Numeric (D/M)",
     "translation": "",
     "context": "Numeric (D/M)",
@@ -12635,6 +12432,13 @@
     "comment": "bluetooth status"
   },
   {
+    "term": "Off — the clock will not be corrected automatically",
+    "translation": "",
+    "context": "Off — the clock will not be corrected automatically",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Office",
     "translation": "",
     "context": "Office",
@@ -12677,13 +12481,6 @@
     "comment": ""
   },
   {
-    "term": "On-Demand",
-    "translation": "",
-    "context": "On-Demand",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "On-screen Displays",
     "translation": "",
     "context": "On-screen Displays",
@@ -12703,13 +12500,6 @@
     "context": "Online",
     "reference": "",
     "comment": "Tailscale filter: all online devices"
-  },
-  {
-    "term": "Online wallpapers",
-    "translation": "",
-    "context": "Online wallpapers",
-    "reference": "",
-    "comment": ""
   },
   {
     "term": "Only adjust gamma based on time or location rules.",
@@ -12845,13 +12635,6 @@
     "comment": ""
   },
   {
-    "term": "Open network",
-    "translation": "",
-    "context": "Open network",
-    "reference": "",
-    "comment": "hotspot security summary"
-  },
-  {
     "term": "Open search bar to find text",
     "translation": "",
     "context": "Open search bar to find text",
@@ -12901,13 +12684,6 @@
     "comment": ""
   },
   {
-    "term": "Optional",
-    "translation": "",
-    "context": "Optional",
-    "reference": "",
-    "comment": "hotspot WiFi band field description | hotspot WiFi device field description"
-  },
-  {
     "term": "Optional description",
     "translation": "",
     "context": "Optional description",
@@ -12927,13 +12703,6 @@
     "context": "Optional state-based conditions applied to the first match.",
     "reference": "",
     "comment": ""
-  },
-  {
-    "term": "Optional; leave blank for open hotspot",
-    "translation": "",
-    "context": "Optional; leave blank for open hotspot",
-    "reference": "",
-    "comment": "hotspot password field placeholder"
   },
   {
     "term": "Options",
@@ -13069,13 +12838,6 @@
     "comment": ""
   },
   {
-    "term": "Override global layout settings for this output",
-    "translation": "",
-    "context": "Override global layout settings for this output",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Override global transparency for Notepad",
     "translation": "",
     "context": "Override global transparency for Notepad",
@@ -13188,13 +12950,6 @@
     "comment": ""
   },
   {
-    "term": "Page",
-    "translation": "",
-    "context": "Page",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Pair",
     "translation": "",
     "context": "Pair",
@@ -13255,7 +13010,7 @@
     "translation": "",
     "context": "Password",
     "reference": "",
-    "comment": "hotspot password field label"
+    "comment": ""
   },
   {
     "term": "Password cannot be empty",
@@ -13853,13 +13608,6 @@
     "comment": ""
   },
   {
-    "term": "Preset Widths (%)",
-    "translation": "",
-    "context": "Preset Widths (%)",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Press Ctrl+N or click 'New Session' to create one",
     "translation": "",
     "context": "Press Ctrl+N or click 'New Session' to create one",
@@ -13879,6 +13627,13 @@
     "context": "Press Enter to paste, Shift+Enter to copy",
     "reference": "",
     "comment": "Clipboard behavior setting description"
+  },
+  {
+    "term": "Press a key, modifier, or mouse button…",
+    "translation": "",
+    "context": "Press a key, modifier, or mouse button…",
+    "reference": "",
+    "comment": ""
   },
   {
     "term": "Press key...",
@@ -13919,13 +13674,6 @@
     "term": "Preview: %1",
     "translation": "",
     "context": "Preview: %1",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Previous",
-    "translation": "",
-    "context": "Previous",
     "reference": "",
     "comment": ""
   },
@@ -14385,6 +14133,13 @@
     "comment": ""
   },
   {
+    "term": "Redo",
+    "translation": "",
+    "context": "Redo",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Refresh",
     "translation": "",
     "context": "Refresh",
@@ -14574,6 +14329,13 @@
     "comment": ""
   },
   {
+    "term": "Remove Bookmark",
+    "translation": "",
+    "context": "Remove Bookmark",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Remove Shortcut?",
     "translation": "",
     "context": "Remove Shortcut?",
@@ -14714,9 +14476,9 @@
     "comment": ""
   },
   {
-    "term": "Require holding button/key to confirm power off, restart, suspend, hibernate and logout",
+    "term": "Require holding button/key to confirm power off, restart, hibernate and logout",
     "translation": "",
-    "context": "Require holding button/key to confirm power off, restart, suspend, hibernate and logout",
+    "context": "Require holding button/key to confirm power off, restart, hibernate and logout",
     "reference": "",
     "comment": ""
   },
@@ -14850,13 +14612,6 @@
     "term": "Restart DMS",
     "translation": "",
     "context": "Restart DMS",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Restart the DankMaterialShell",
-    "translation": "",
-    "context": "Restart the DankMaterialShell",
     "reference": "",
     "comment": ""
   },
@@ -15141,34 +14896,6 @@
     "comment": ""
   },
   {
-    "term": "Running in terminal",
-    "translation": "",
-    "context": "Running in terminal",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "SDR Brightness",
-    "translation": "",
-    "context": "SDR Brightness",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "SDR Saturation",
-    "translation": "",
-    "context": "SDR Saturation",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "SSID",
-    "translation": "",
-    "context": "SSID",
-    "reference": "",
-    "comment": "hotspot network name placeholder"
-  },
-  {
     "term": "Saturation",
     "translation": "",
     "context": "Saturation",
@@ -15180,14 +14907,7 @@
     "translation": "",
     "context": "Save",
     "reference": "",
-    "comment": "save hotspot configuration action"
-  },
-  {
-    "term": "Save & Start",
-    "translation": "",
-    "context": "Save & Start",
-    "reference": "",
-    "comment": "save and start hotspot action"
+    "comment": ""
   },
   {
     "term": "Save Notepad File",
@@ -15267,6 +14987,13 @@
     "comment": ""
   },
   {
+    "term": "Save the Markdown document before adding images",
+    "translation": "",
+    "context": "Save the Markdown document before adding images",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Saved",
     "translation": "",
     "context": "Saved",
@@ -15306,7 +15033,7 @@
     "translation": "",
     "context": "Saving...",
     "reference": "",
-    "comment": "hotspot configuration saving status"
+    "comment": ""
   },
   {
     "term": "Scale",
@@ -15368,13 +15095,6 @@
     "term": "Science",
     "translation": "",
     "context": "Science",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Score",
-    "translation": "",
-    "context": "Score",
     "reference": "",
     "comment": ""
   },
@@ -15459,13 +15179,6 @@
     "term": "Search Options",
     "translation": "",
     "context": "Search Options",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Search and install wallpapers without leaving settings. Only safe content is shown.",
-    "translation": "",
-    "context": "Search and install wallpapers without leaving settings. Only safe content is shown.",
     "reference": "",
     "comment": ""
   },
@@ -15627,6 +15340,13 @@
     "term": "Select",
     "translation": "",
     "context": "Select",
+    "reference": "",
+    "comment": ""
+  },
+  {
+    "term": "Select All",
+    "translation": "",
+    "context": "Select All",
     "reference": "",
     "comment": ""
   },
@@ -15818,6 +15538,13 @@
     "context": "Select network",
     "reference": "",
     "comment": "network status"
+  },
+  {
+    "term": "Select text first",
+    "translation": "",
+    "context": "Select text first",
+    "reference": "",
+    "comment": ""
   },
   {
     "term": "Select the executable path shown by the running process.",
@@ -16030,13 +15757,6 @@
     "comment": ""
   },
   {
-    "term": "Set up a WiFi hotspot for sharing this connection.",
-    "translation": "",
-    "context": "Set up a WiFi hotspot for sharing this connection.",
-    "reference": "",
-    "comment": "unconfigured hotspot description"
-  },
-  {
     "term": "Set up hotspot",
     "translation": "",
     "context": "Set up hotspot",
@@ -16236,13 +15956,6 @@
     "term": "Show All Tags",
     "translation": "",
     "context": "Show All Tags",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Show All, Apps, and Files chips beside the Spotlight Bar input.",
-    "translation": "",
-    "context": "Show All, Apps, and Files chips beside the Spotlight Bar input.",
     "reference": "",
     "comment": ""
   },
@@ -16495,13 +16208,6 @@
     "term": "Show Remaining Time",
     "translation": "",
     "context": "Show Remaining Time",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Show Restart DMS",
-    "translation": "",
-    "context": "Show Restart DMS",
     "reference": "",
     "comment": ""
   },
@@ -17101,13 +16807,6 @@
     "comment": ""
   },
   {
-    "term": "Spotlight Search",
-    "translation": "",
-    "context": "Spotlight Search",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Square Corners",
     "translation": "",
     "context": "Square Corners",
@@ -17140,7 +16839,7 @@
     "translation": "",
     "context": "Start",
     "reference": "",
-    "comment": "hotspot start confirmation action | start hotspot action"
+    "comment": "hotspot start confirmation action"
   },
   {
     "term": "Start Hotspot?",
@@ -17171,20 +16870,6 @@
     "comment": ""
   },
   {
-    "term": "Starting hotspot...",
-    "translation": "",
-    "context": "Starting hotspot...",
-    "reference": "",
-    "comment": "hotspot activation status message"
-  },
-  {
-    "term": "Starting the hotspot will disconnect WiFi from \"%1\" — the radio can't do both at once. Sharing internet then requires another connection, such as Ethernet.",
-    "translation": "",
-    "context": "Starting the hotspot will disconnect WiFi from \"%1\" — the radio can't do both at once. Sharing internet then requires another connection, such as Ethernet.",
-    "reference": "",
-    "comment": "hotspot WiFi disconnection warning"
-  },
-  {
     "term": "Starting...",
     "translation": "",
     "context": "Starting...",
@@ -17204,13 +16889,6 @@
     "context": "Status",
     "reference": "",
     "comment": ""
-  },
-  {
-    "term": "Stop",
-    "translation": "",
-    "context": "Stop",
-    "reference": "",
-    "comment": "stop hotspot action"
   },
   {
     "term": "Stop ignoring %1",
@@ -17444,6 +17122,13 @@
     "comment": ""
   },
   {
+    "term": "Suspend failed",
+    "translation": "",
+    "context": "Suspend failed",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Suspend system after",
     "translation": "",
     "context": "Suspend system after",
@@ -17570,6 +17255,13 @@
     "comment": ""
   },
   {
+    "term": "Synchronized from the internet%1",
+    "translation": "",
+    "context": "Synchronized from the internet%1",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Syncing...",
     "translation": "",
     "context": "Syncing...",
@@ -17657,13 +17349,6 @@
     "term": "System Updater",
     "translation": "",
     "context": "System Updater",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "System Updates",
-    "translation": "",
-    "context": "System Updates",
     "reference": "",
     "comment": ""
   },
@@ -18739,6 +18424,13 @@
     "comment": ""
   },
   {
+    "term": "Undo",
+    "translation": "",
+    "context": "Undo",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Unfocused Color",
     "translation": "",
     "context": "Unfocused Color",
@@ -18977,13 +18669,6 @@
     "comment": ""
   },
   {
-    "term": "Up to date",
-    "translation": "",
-    "context": "Up to date",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Update",
     "translation": "",
     "context": "Update",
@@ -18991,23 +18676,9 @@
     "comment": ""
   },
   {
-    "term": "Update All",
-    "translation": "",
-    "context": "Update All",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Update Regalia to run a connection test",
     "translation": "",
     "context": "Update Regalia to run a connection test",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Upgrading...",
-    "translation": "",
-    "context": "Upgrading...",
     "reference": "",
     "comment": ""
   },
@@ -19152,6 +18823,13 @@
     "comment": ""
   },
   {
+    "term": "Use a key or mouse button to control the microphone. Panel controls always remain available.",
+    "translation": "",
+    "context": "Use a key or mouse button to control the microphone. Panel controls always remain available.",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "Use a security key for lock screen authentication",
     "translation": "",
     "context": "Use a security key for lock screen authentication",
@@ -19164,13 +18842,6 @@
     "context": "Use album art accent",
     "reference": "",
     "comment": ""
-  },
-  {
-    "term": "Use an external wallpaper manager like swww, hyprpaper, or swaybg.",
-    "translation": "",
-    "context": "Use an external wallpaper manager like swww, hyprpaper, or swaybg.",
-    "reference": "",
-    "comment": "wallpaper settings disable description"
   },
   {
     "term": "Use animated wave progress bars for media playback",
@@ -19544,13 +19215,6 @@
     "comment": ""
   },
   {
-    "term": "VRR Fullscreen Only",
-    "translation": "",
-    "context": "VRR Fullscreen Only",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "VRR On-Demand",
     "translation": "",
     "context": "VRR On-Demand",
@@ -19717,13 +19381,6 @@
     "context": "WPA/WPA2",
     "reference": "",
     "comment": ""
-  },
-  {
-    "term": "WPA2 password",
-    "translation": "",
-    "context": "WPA2 password",
-    "reference": "",
-    "comment": "hotspot security summary"
   },
   {
     "term": "Wallhaven returned an invalid response",
@@ -19964,13 +19621,6 @@
     "comment": "hotspot start error title"
   },
   {
-    "term": "WiFi is disabled. You can still edit and save hotspot settings, but starting the hotspot requires WiFi to be enabled.",
-    "translation": "",
-    "context": "WiFi is disabled. You can still edit and save hotspot settings, but starting the hotspot requires WiFi to be enabled.",
-    "reference": "",
-    "comment": "hotspot WiFi requirement explanation"
-  },
-  {
     "term": "WiFi is off",
     "translation": "",
     "context": "WiFi is off",
@@ -19983,13 +19633,6 @@
     "context": "WiFi off",
     "reference": "",
     "comment": "network status"
-  },
-  {
-    "term": "Wide (BT2020)",
-    "translation": "",
-    "context": "Wide (BT2020)",
-    "reference": "",
-    "comment": ""
   },
   {
     "term": "Widget Background Color",
@@ -20146,13 +19789,6 @@
     "comment": ""
   },
   {
-    "term": "Window Gaps (px)",
-    "translation": "",
-    "context": "Window Gaps (px)",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "Window Height",
     "translation": "",
     "context": "Window Height",
@@ -20240,13 +19876,6 @@
     "term": "Workspace name",
     "translation": "",
     "context": "Workspace name",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "Workspaces",
-    "translation": "",
-    "context": "Workspaces",
     "reference": "",
     "comment": ""
   },
@@ -20384,27 +20013,6 @@
     "comment": ""
   },
   {
-    "term": "Your hotspot is running.",
-    "translation": "",
-    "context": "Your hotspot is running.",
-    "reference": "",
-    "comment": "hotspot active status message"
-  },
-  {
-    "term": "Your hotspot profile is saved and ready to start.",
-    "translation": "",
-    "context": "Your hotspot profile is saved and ready to start.",
-    "reference": "",
-    "comment": "configured hotspot status message"
-  },
-  {
-    "term": "Your system is up to date!",
-    "translation": "",
-    "context": "Your system is up to date!",
-    "reference": "",
-    "comment": ""
-  },
-  {
     "term": "admin",
     "translation": "",
     "context": "admin",
@@ -20426,6 +20034,13 @@
     "comment": "contrast level below the AA threshold"
   },
   {
+    "term": "bold text",
+    "translation": "",
+    "context": "bold text",
+    "reference": "",
+    "comment": ""
+  },
+  {
     "term": "brandon",
     "translation": "",
     "context": "brandon",
@@ -20438,34 +20053,6 @@
     "context": "by %1",
     "reference": "",
     "comment": "author attribution"
-  },
-  {
-    "term": "checked %1d ago",
-    "translation": "",
-    "context": "checked %1d ago",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "checked %1h ago",
-    "translation": "",
-    "context": "checked %1h ago",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "checked %1m ago",
-    "translation": "",
-    "context": "checked %1m ago",
-    "reference": "",
-    "comment": ""
-  },
-  {
-    "term": "checked just now",
-    "translation": "",
-    "context": "checked just now",
-    "reference": "",
-    "comment": ""
   },
   {
     "term": "days",
@@ -20552,16 +20139,16 @@
     "comment": ""
   },
   {
-    "term": "ext",
+    "term": "featured",
     "translation": "",
-    "context": "ext",
+    "context": "featured",
     "reference": "",
     "comment": ""
   },
   {
-    "term": "featured",
+    "term": "italic text",
     "translation": "",
-    "context": "featured",
+    "context": "italic text",
     "reference": "",
     "comment": ""
   },

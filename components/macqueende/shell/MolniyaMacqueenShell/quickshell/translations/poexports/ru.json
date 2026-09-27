@@ -692,6 +692,9 @@
   "Applying auto-login on startup...": {
     "Applying auto-login on startup...": "Применение автоматического входа при запуске..."
   },
+  "Applying…": {
+    "Applying…": "Применение…"
+  },
   "Apps": {
     "Apps": "Приложения"
   },
@@ -916,6 +919,12 @@
   },
   "Automatic Cycling": {
     "Automatic Cycling": "Автоматическое Переключение"
+  },
+  "Automatic Date & Time": {
+    "Automatic Date & Time": "Автоматические дата и время"
+  },
+  "Automatic time synchronization is unavailable": {
+    "Automatic time synchronization is unavailable": "Автоматическая синхронизация времени недоступна"
   },
   "Automatically calculate popup gap based on bar spacing": {
     "Automatically calculate popup gap based on bar spacing": "Автоматически вычислять отступ всплывающего окна на основе расстояния панели"
@@ -1396,6 +1405,9 @@
   },
   "Checking for updates...": {
     "Checking for updates...": "Проверка обновлений..."
+  },
+  "Checking system time service…": {
+    "Checking system time service…": "Проверка системной службы времени…"
   },
   "Checking whether sudo authentication is needed...": {
     "Checking whether sudo authentication is needed...": "Проверка необходимости аутентификации sudo..."
@@ -2198,6 +2210,9 @@
   "Darken Modal Background": {
     "Darken Modal Background": "Затемнение фона модальных окон"
   },
+  "Date & Time": {
+    "Date & Time": "Дата и время"
+  },
   "Date Format": {
     "Date Format": "Формат Даты"
   },
@@ -2749,6 +2764,9 @@
   },
   "Enabled": {
     "Enabled": "Включено"
+  },
+  "Enabled — waiting for synchronization%1": {
+    "Enabled — waiting for synchronization%1": "Включено — ожидание синхронизации%1"
   },
   "Enabling WiFi...": {
     "Enabling WiFi...": "Включение Wi-Fi…"
@@ -4343,6 +4361,9 @@
   "Layout Overrides": {
     "Layout Overrides": "Переопределения макета"
   },
+  "Letters, modifier keys, combinations, and mouse buttons 3–8 are supported.": {
+    "Letters, modifier keys, combinations, and mouse buttons 3–8 are supported.": "Поддерживаются буквы, клавиши-модификаторы, сочетания и кнопки мыши 3–8."
+  },
   "Left": {
     "Left": "Слева"
   },
@@ -4762,6 +4783,9 @@
   },
   "Microphone": {
     "Microphone": "Микрофон"
+  },
+  "Microphone shortcut": {
+    "Microphone shortcut": "Управление микрофоном горячей клавишей"
   },
   "Microphone Mute": {
     "Microphone Mute": "Микрофон отключён"
@@ -5444,6 +5468,9 @@
   "Off": {
     "Off": "Выкл"
   },
+  "Off — the clock will not be corrected automatically": {
+    "Off — the clock will not be corrected automatically": "Выключено — часы не будут корректироваться автоматически"
+  },
   "Office": {
     "Office": "Офис"
   },
@@ -6037,6 +6064,9 @@
   },
   "Press key...": {
     "Press key...": "Нажмите клавишу..."
+  },
+  "Press a key, modifier, or mouse button…": {
+    "Press a key, modifier, or mouse button…": "Нажмите клавишу, модификатор или кнопку мыши…"
   },
   "Pressure": {
     "Pressure": "Давление"
@@ -7607,6 +7637,9 @@
   "Syncing...": {
     "Syncing...": ""
   },
+  "Synchronized from the internet%1": {
+    "Synchronized from the internet%1": "Синхронизировано через интернет%1"
+  },
   "System App Theming": {
     "System App Theming": "Темы системных приложений"
   },
@@ -8263,6 +8296,9 @@
   },
   "Use a custom radius for goth corner cutouts": {
     "Use a custom radius for goth corner cutouts": "Использовать пользовательский радиус для готических вырезов по углам"
+  },
+  "Use a key or mouse button to control the microphone. Panel controls always remain available.": {
+    "Use a key or mouse button to control the microphone. Panel controls always remain available.": "Включайте и выключайте микрофон клавишей или кнопкой мыши. Управление из панели остаётся доступным всегда."
   },
   "Use a fixed shadow direction for this bar": {
     "Use a fixed shadow direction for this bar": "Использовать фиксированное направление тени для этой панели"

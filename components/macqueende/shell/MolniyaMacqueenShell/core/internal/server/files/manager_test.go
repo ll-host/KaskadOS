@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -27,15 +28,64 @@ func TestFileSystemCompatibility(t *testing.T) {
 func TestCollectDevicesSkipsSystemMounts(t *testing.T) {
 	root := lsblkDevice{Path: "/dev/sda", Type: "disk", Transport: "usb", Children: []lsblkDevice{
 		{Name: "sda1", Path: "/dev/sda1", Type: "part", FileSystem: "vfat", MountPoint: "/boot/efi", Size: "1024"},
-		{Name: "sda2", Path: "/dev/sda2", Type: "part", FileSystem: "exfat", MountPoint: "/run/media/test/USB", Size: "2048"},
+		{Name: "sda2", Path: "/dev/sda2", Type: "part", FileSystem: "exfat", MountPoint: "/run/media/test/USB", Size: "2048", ReadOnly: true},
 	}}
 	var devices []Device
 	collectDevices(root, false, "", &devices)
 	if len(devices) != 1 {
 		t.Fatalf("got %d devices, want 1", len(devices))
 	}
-	if devices[0].Path != "/dev/sda2" || devices[0].ParentPath != "/dev/sda" || !devices[0].Removable {
+	if devices[0].Path != "/dev/sda2" || devices[0].ParentPath != "/dev/sda" || !devices[0].Removable || !devices[0].ReadOnly {
 		t.Fatalf("unexpected device: %+v", devices[0])
+	}
+}
+
+func TestNormalizeFormatRequest(t *testing.T) {
+	tests := []struct {
+		name           string
+		fileSystem     string
+		label          string
+		wantFileSystem string
+		wantLabel      string
+		wantError      bool
+	}{
+		{name: "exfat", fileSystem: "exFAT", label: "KaskadOS", wantFileSystem: "exfat", wantLabel: "KaskadOS"},
+		{name: "fat32 uppercase", fileSystem: "vfat", label: "media", wantFileSystem: "vfat", wantLabel: "MEDIA"},
+		{name: "ext4 unicode", fileSystem: "EXT4", label: "Диск", wantFileSystem: "ext4", wantLabel: "Диск"},
+		{name: "btrfs unicode", fileSystem: "BTRFS", label: "Архив", wantFileSystem: "btrfs", wantLabel: "Архив"},
+		{name: "ntfs", fileSystem: "NTFS", label: "Windows", wantFileSystem: "ntfs", wantLabel: "Windows"},
+		{name: "invalid character", fileSystem: "exfat", label: "MY/USB", wantError: true},
+		{name: "fat32 non ascii", fileSystem: "vfat", label: "ФЛЕШКА", wantError: true},
+		{name: "fat32 too long", fileSystem: "vfat", label: "TWELVE-CHARS", wantError: true},
+		{name: "exfat too long", fileSystem: "exfat", label: "1234567890123456", wantError: true},
+		{name: "ext4 too many bytes", fileSystem: "ext4", label: "Оченьдлинноеимя", wantError: true},
+		{name: "btrfs too many bytes", fileSystem: "btrfs", label: strings.Repeat("A", 256), wantError: true},
+		{name: "ntfs too long", fileSystem: "ntfs", label: strings.Repeat("A", 33), wantError: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fileSystem, label, err := normalizeFormatRequest(test.fileSystem, test.label)
+			if test.wantError {
+				if err == nil {
+					t.Fatalf("normalizeFormatRequest(%q, %q) unexpectedly succeeded", test.fileSystem, test.label)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fileSystem != test.wantFileSystem || label != test.wantLabel {
+				t.Fatalf("got (%q, %q), want (%q, %q)", fileSystem, label, test.wantFileSystem, test.wantLabel)
+			}
+		})
+	}
+}
+
+func TestCancelFormatIsRejected(t *testing.T) {
+	manager := NewManager()
+	manager.operations["format-test"] = &Operation{ID: "format-test", Kind: "format", State: "running"}
+	if err := manager.CancelOperation("format-test"); err == nil {
+		t.Fatal("active format operation was cancellable")
 	}
 }
 

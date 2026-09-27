@@ -23,6 +23,7 @@ import (
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/tailscale"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/thememode"
 	serverThemes "github.com/AvengeMedia/DankMaterialShell/core/internal/server/themes"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/timedate"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/wallpaper"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/wayland"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/server/windowsapps"
@@ -216,6 +217,15 @@ func RouteRequest(conn *models.Conn, req models.Request) {
 			return
 		}
 		files.HandleRequest(conn, req, filesManager)
+		return
+	}
+
+	if strings.HasPrefix(req.Method, "timedate.") {
+		if timeDateManager == nil {
+			models.RespondError(conn, req.ID, "time synchronization manager not initialized")
+			return
+		}
+		timedate.HandleRequest(conn, req, timeDateManager)
 		return
 	}
 

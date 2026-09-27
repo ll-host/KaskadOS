@@ -17,8 +17,11 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/trash"
+	"github.com/godbus/dbus/v5"
 )
 
 type Entry struct {
@@ -61,8 +64,51 @@ type Device struct {
 	MountPoint    string `json:"mountPoint,omitempty"`
 	SizeBytes     int64  `json:"sizeBytes"`
 	Removable     bool   `json:"removable"`
+	ReadOnly      bool   `json:"readOnly"`
 	Mounted       bool   `json:"mounted"`
+	System        bool   `json:"system"`
+	Layered       bool   `json:"layered"`
 	Compatibility string `json:"compatibility"`
+}
+
+type StorageRegion struct {
+	Kind           string  `json:"kind"`
+	Name           string  `json:"name"`
+	Path           string  `json:"path,omitempty"`
+	ParentPath     string  `json:"parentPath"`
+	Label          string  `json:"label,omitempty"`
+	FileSystem     string  `json:"fileSystem,omitempty"`
+	MountPoint     string  `json:"mountPoint,omitempty"`
+	UUID           string  `json:"uuid,omitempty"`
+	PartitionUUID  string  `json:"partitionUuid,omitempty"`
+	PartitionType  string  `json:"partitionType,omitempty"`
+	PartitionName  string  `json:"partitionName,omitempty"`
+	OffsetBytes    int64   `json:"offsetBytes"`
+	SizeBytes      int64   `json:"sizeBytes"`
+	AvailableBytes int64   `json:"availableBytes,omitempty"`
+	UsagePercent   float64 `json:"usagePercent,omitempty"`
+	ReadOnly       bool    `json:"readOnly"`
+	Mounted        bool    `json:"mounted"`
+	System         bool    `json:"system"`
+	Layered        bool    `json:"layered"`
+	Compatibility  string  `json:"compatibility"`
+}
+
+type StorageDisk struct {
+	Name           string          `json:"name"`
+	Path           string          `json:"path"`
+	Model          string          `json:"model,omitempty"`
+	Vendor         string          `json:"vendor,omitempty"`
+	Serial         string          `json:"serial,omitempty"`
+	Transport      string          `json:"transport,omitempty"`
+	PartitionTable string          `json:"partitionTable,omitempty"`
+	PartitionUUID  string          `json:"partitionUuid,omitempty"`
+	SizeBytes      int64           `json:"sizeBytes"`
+	Removable      bool            `json:"removable"`
+	Hotplug        bool            `json:"hotplug"`
+	ReadOnly       bool            `json:"readOnly"`
+	System         bool            `json:"system"`
+	Regions        []StorageRegion `json:"regions"`
 }
 
 type Operation struct {
@@ -74,6 +120,7 @@ type Operation struct {
 	State          string `json:"state"`
 	TotalBytes     int64  `json:"totalBytes"`
 	ProcessedBytes int64  `json:"processedBytes"`
+	Detail         string `json:"detail,omitempty"`
 	Error          string `json:"error,omitempty"`
 	cancel         context.CancelFunc
 }
@@ -83,18 +130,32 @@ type lsblkOutput struct {
 }
 
 type lsblkDevice struct {
-	Name       string        `json:"name"`
-	Path       string        `json:"path"`
-	ParentName string        `json:"pkname"`
-	Label      string        `json:"label"`
-	FileSystem string        `json:"fstype"`
-	MountPoint string        `json:"mountpoint"`
-	Size       json.Number   `json:"size"`
-	Removable  boolish       `json:"rm"`
-	Hotplug    boolish       `json:"hotplug"`
-	Type       string        `json:"type"`
-	Transport  string        `json:"tran"`
-	Children   []lsblkDevice `json:"children"`
+	Name           string        `json:"name"`
+	Path           string        `json:"path"`
+	ParentName     string        `json:"pkname"`
+	Label          string        `json:"label"`
+	FileSystem     string        `json:"fstype"`
+	MountPoint     string        `json:"mountpoint"`
+	Size           json.Number   `json:"size"`
+	Removable      boolish       `json:"rm"`
+	ReadOnly       boolish       `json:"ro"`
+	Hotplug        boolish       `json:"hotplug"`
+	Type           string        `json:"type"`
+	Transport      string        `json:"tran"`
+	Model          string        `json:"model"`
+	Vendor         string        `json:"vendor"`
+	Serial         string        `json:"serial"`
+	PartitionTable string        `json:"pttype"`
+	PartitionUUID  string        `json:"ptuuid"`
+	UUID           string        `json:"uuid"`
+	PartitionType  string        `json:"parttype"`
+	PartitionName  string        `json:"partlabel"`
+	PartitionID    string        `json:"partuuid"`
+	Start          json.Number   `json:"start"`
+	LogicalSector  json.Number   `json:"log-sec"`
+	Available      json.Number   `json:"fsavail"`
+	Usage          string        `json:"fsuse%"`
+	Children       []lsblkDevice `json:"children"`
 }
 
 type boolish bool
@@ -322,18 +383,9 @@ func (m *Manager) TrashEmpty() error {
 }
 
 func (m *Manager) Devices() ([]Device, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	output, err := exec.CommandContext(ctx, "lsblk", "--json", "--bytes",
-		"--output", "NAME,PATH,PKNAME,LABEL,FSTYPE,MOUNTPOINT,SIZE,RM,HOTPLUG,TYPE,TRAN").Output()
+	decoded, err := blockInventory()
 	if err != nil {
-		return nil, fmt.Errorf("список накопителей: %w", err)
-	}
-	var decoded lsblkOutput
-	decoder := json.NewDecoder(strings.NewReader(string(output)))
-	decoder.UseNumber()
-	if err := decoder.Decode(&decoded); err != nil {
-		return nil, fmt.Errorf("список накопителей: %w", err)
+		return nil, err
 	}
 	var result []Device
 	for _, item := range decoded.BlockDevices {
@@ -346,6 +398,180 @@ func (m *Manager) Devices() ([]Device, error) {
 		return strings.ToLower(result[i].Label) < strings.ToLower(result[j].Label)
 	})
 	return result, nil
+}
+
+func blockInventory() (lsblkOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, "lsblk", "--json", "--bytes",
+		"--output", "NAME,PATH,PKNAME,LABEL,FSTYPE,MOUNTPOINT,SIZE,RM,RO,HOTPLUG,TYPE,TRAN,MODEL,VENDOR,SERIAL,PTTYPE,PTUUID,UUID,PARTTYPE,PARTLABEL,PARTUUID,START,LOG-SEC,FSAVAIL,FSUSE%").Output()
+	if err != nil {
+		return lsblkOutput{}, fmt.Errorf("список накопителей: %w", err)
+	}
+	var decoded lsblkOutput
+	decoder := json.NewDecoder(strings.NewReader(string(output)))
+	decoder.UseNumber()
+	if err := decoder.Decode(&decoded); err != nil {
+		return lsblkOutput{}, fmt.Errorf("список накопителей: %w", err)
+	}
+	return decoded, nil
+}
+
+func (m *Manager) Storage() ([]StorageDisk, error) {
+	decoded, err := blockInventory()
+	if err != nil {
+		return nil, err
+	}
+	disks := make([]StorageDisk, 0, len(decoded.BlockDevices))
+	for _, item := range decoded.BlockDevices {
+		if item.Type != "disk" {
+			continue
+		}
+		disk := storageDisk(item)
+		disks = append(disks, disk)
+	}
+	sort.SliceStable(disks, func(i, j int) bool {
+		if disks[i].System != disks[j].System {
+			return disks[i].System
+		}
+		if disks[i].Removable != disks[j].Removable {
+			return !disks[i].Removable
+		}
+		return strings.ToLower(disks[i].Name) < strings.ToLower(disks[j].Name)
+	})
+	return disks, nil
+}
+
+func storageDisk(item lsblkDevice) StorageDisk {
+	diskSize := numberInt64(item.Size)
+	logicalSector := numberInt64(item.LogicalSector)
+	if logicalSector <= 0 {
+		logicalSector = 512
+	}
+	disk := StorageDisk{
+		Name:           item.Name,
+		Path:           item.Path,
+		Model:          strings.TrimSpace(item.Model),
+		Vendor:         strings.TrimSpace(item.Vendor),
+		Serial:         strings.TrimSpace(item.Serial),
+		Transport:      strings.TrimSpace(item.Transport),
+		PartitionTable: strings.ToLower(strings.TrimSpace(item.PartitionTable)),
+		PartitionUUID:  strings.TrimSpace(item.PartitionUUID),
+		SizeBytes:      diskSize,
+		Removable:      bool(item.Removable),
+		Hotplug:        bool(item.Hotplug),
+		ReadOnly:       bool(item.ReadOnly),
+		Regions:        []StorageRegion{},
+	}
+
+	partitions := make([]StorageRegion, 0, len(item.Children))
+	for _, child := range item.Children {
+		if child.Type != "part" {
+			continue
+		}
+		region := storageRegion(child, item.Path, logicalSector)
+		partitions = append(partitions, region)
+		if region.System {
+			disk.System = true
+		}
+	}
+	sort.SliceStable(partitions, func(i, j int) bool {
+		return partitions[i].OffsetBytes < partitions[j].OffsetBytes
+	})
+
+	if len(partitions) == 0 && item.FileSystem != "" {
+		region := storageRegion(item, item.Path, logicalSector)
+		region.Kind = "volume"
+		region.OffsetBytes = 0
+		disk.Regions = append(disk.Regions, region)
+		disk.System = region.System
+		return disk
+	}
+
+	const alignment = int64(1024 * 1024)
+	cursor := alignment
+	usableEnd := diskSize - alignment
+	for _, partition := range partitions {
+		if partition.OffsetBytes > cursor+alignment {
+			disk.Regions = append(disk.Regions, StorageRegion{
+				Kind: "free", Name: "Свободное место", ParentPath: item.Path,
+				OffsetBytes: cursor, SizeBytes: partition.OffsetBytes - cursor,
+			})
+		}
+		disk.Regions = append(disk.Regions, partition)
+		if end := partition.OffsetBytes + partition.SizeBytes; end > cursor {
+			cursor = end
+		}
+	}
+	if usableEnd > cursor+alignment {
+		disk.Regions = append(disk.Regions, StorageRegion{
+			Kind: "free", Name: "Свободное место", ParentPath: item.Path,
+			OffsetBytes: cursor, SizeBytes: usableEnd - cursor,
+		})
+	}
+	if len(disk.Regions) == 0 && diskSize > 2*alignment {
+		disk.Regions = append(disk.Regions, StorageRegion{
+			Kind: "free", Name: "Свободное место", ParentPath: item.Path,
+			OffsetBytes: alignment, SizeBytes: diskSize - 2*alignment,
+		})
+	}
+	return disk
+}
+
+func storageRegion(item lsblkDevice, parentPath string, logicalSector int64) StorageRegion {
+	display := item
+	layered := len(item.Children) > 0
+	for len(display.Children) > 0 {
+		display = display.Children[0]
+	}
+	label := strings.TrimSpace(display.Label)
+	if label == "" {
+		label = strings.TrimSpace(item.PartitionName)
+	}
+	if label == "" {
+		label = item.Name
+	}
+	usage, _ := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(display.Usage), "%"), 64)
+	region := StorageRegion{
+		Kind:           "partition",
+		Name:           item.Name,
+		Path:           item.Path,
+		ParentPath:     parentPath,
+		Label:          label,
+		FileSystem:     strings.ToLower(display.FileSystem),
+		MountPoint:     display.MountPoint,
+		UUID:           strings.TrimSpace(display.UUID),
+		PartitionUUID:  strings.TrimSpace(item.PartitionID),
+		PartitionType:  strings.TrimSpace(item.PartitionType),
+		PartitionName:  strings.TrimSpace(item.PartitionName),
+		OffsetBytes:    numberInt64(item.Start) * logicalSector,
+		SizeBytes:      numberInt64(item.Size),
+		AvailableBytes: numberInt64(display.Available),
+		UsagePercent:   usage,
+		ReadOnly:       bool(item.ReadOnly) || bool(display.ReadOnly),
+		Mounted:        display.MountPoint != "",
+		System:         nodeContainsSystemMount(item),
+		Layered:        layered,
+		Compatibility:  fileSystemCompatibility(display.FileSystem),
+	}
+	return region
+}
+
+func nodeContainsSystemMount(item lsblkDevice) bool {
+	if isSystemMount(item.MountPoint) {
+		return true
+	}
+	for _, child := range item.Children {
+		if nodeContainsSystemMount(child) {
+			return true
+		}
+	}
+	return false
+}
+
+func numberInt64(value json.Number) int64 {
+	parsed, _ := strconv.ParseInt(string(value), 10, 64)
+	return parsed
 }
 
 func collectDevices(item lsblkDevice, parentExternal bool, parentPath string, result *[]Device) {
@@ -369,6 +595,7 @@ func collectDevices(item lsblkDevice, parentExternal bool, parentPath string, re
 			MountPoint:    item.MountPoint,
 			SizeBytes:     size,
 			Removable:     external,
+			ReadOnly:      bool(item.ReadOnly),
 			Mounted:       item.MountPoint != "",
 			Compatibility: fileSystemCompatibility(item.FileSystem),
 		})
@@ -400,6 +627,73 @@ func fileSystemCompatibility(fileSystem string) string {
 	}
 }
 
+func normalizeFormatRequest(fileSystem, label string) (string, string, error) {
+	fileSystem = strings.ToLower(strings.TrimSpace(fileSystem))
+	switch fileSystem {
+	case "ext4", "btrfs", "exfat", "vfat", "ntfs":
+	default:
+		return "", "", errors.New("поддерживаются только Btrfs, EXT4, NTFS, exFAT и FAT32")
+	}
+
+	label = strings.TrimSpace(label)
+	for _, character := range label {
+		if unicode.IsControl(character) || strings.ContainsRune(`/\\*?<>|":`, character) {
+			return "", "", errors.New("имя накопителя содержит недопустимые символы")
+		}
+	}
+
+	switch fileSystem {
+	case "vfat":
+		label = strings.ToUpper(label)
+		if len(label) > 11 || len(label) != utf8.RuneCountInString(label) {
+			return "", "", errors.New("для FAT32 имя должно содержать до 11 латинских символов")
+		}
+	case "exfat":
+		if utf8.RuneCountInString(label) > 15 {
+			return "", "", errors.New("для exFAT имя должно содержать не больше 15 символов")
+		}
+	case "ext4":
+		if len([]byte(label)) > 16 {
+			return "", "", errors.New("для EXT4 имя должно занимать не больше 16 байт")
+		}
+	case "btrfs":
+		if len([]byte(label)) > 255 {
+			return "", "", errors.New("для Btrfs имя должно занимать меньше 256 байт")
+		}
+	case "ntfs":
+		if utf8.RuneCountInString(label) > 32 {
+			return "", "", errors.New("для NTFS имя должно содержать не больше 32 символов")
+		}
+	}
+	return fileSystem, label, nil
+}
+
+func checkUDisksFormatAvailable(fileSystem string) error {
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		return fmt.Errorf("подключение к службе накопителей: %w", err)
+	}
+	defer connection.Close()
+
+	var available bool
+	var utility string
+	call := connection.Object("org.freedesktop.UDisks2", dbus.ObjectPath("/org/freedesktop/UDisks2/Manager")).Call(
+		"org.freedesktop.UDisks2.Manager.CanFormat", 0, fileSystem)
+	if call.Err != nil {
+		return fmt.Errorf("проверка поддержки %s: %w", fileSystem, call.Err)
+	}
+	if err := call.Store(&available, &utility); err != nil {
+		return fmt.Errorf("проверка поддержки %s: %w", fileSystem, err)
+	}
+	if !available {
+		if utility != "" {
+			return fmt.Errorf("для %s не установлена утилита %s", fileSystem, utility)
+		}
+		return fmt.Errorf("форматирование в %s не поддерживается", fileSystem)
+	}
+	return nil
+}
+
 func (m *Manager) Mount(devicePath string) (string, error) {
 	devicePath, err := blockDevicePath(devicePath)
 	if err != nil {
@@ -409,30 +703,85 @@ func (m *Manager) Mount(devicePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if m.storageOperationActive() {
+		return "", errors.New("дождитесь завершения операции с накопителем")
+	}
 	if device.Mounted {
 		return device.MountPoint, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-	output, err := exec.CommandContext(ctx, "udisksctl", "mount", "--block-device", devicePath, "--no-user-interaction").CombinedOutput()
+	connection, err := dbus.ConnectSystemBus()
 	if err != nil {
-		return "", fmt.Errorf("подключение накопителя: %w (%s)", err, strings.TrimSpace(string(output)))
+		return "", fmt.Errorf("подключение к службе накопителей: %w", err)
 	}
-	devices, listErr := m.Devices()
-	if listErr == nil {
-		for _, device := range devices {
-			if device.Path == devicePath {
-				return device.MountPoint, nil
-			}
-		}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, devicePath)
+	if err != nil {
+		return "", err
 	}
-	return "", nil
+	var mountPoint string
+	call := connection.Object("org.freedesktop.UDisks2", objectPath).Call(
+		"org.freedesktop.UDisks2.Filesystem.Mount",
+		dbus.FlagAllowInteractiveAuthorization,
+		map[string]dbus.Variant{})
+	if call.Err != nil {
+		return "", fmt.Errorf("не удалось подключить накопитель: %w", call.Err)
+	}
+	if err := call.Store(&mountPoint); err != nil {
+		return "", fmt.Errorf("не удалось определить точку подключения: %w", err)
+	}
+	return mountPoint, nil
+}
+
+func (m *Manager) Unmount(devicePath string) error {
+	devicePath, err := blockDevicePath(devicePath)
+	if err != nil {
+		return err
+	}
+	device, err := m.deviceByPath(devicePath)
+	if err != nil {
+		return err
+	}
+	if m.storageOperationActive() {
+		return errors.New("дождитесь завершения операции с накопителем")
+	}
+	if device.System {
+		return errors.New("системный раздел нельзя отключить во время работы системы")
+	}
+	if !device.Mounted {
+		return nil
+	}
+	if m.pathHasActiveOperation(device.MountPoint) {
+		return errors.New("дождитесь завершения файловой операции на этом разделе")
+	}
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		return fmt.Errorf("подключение к службе накопителей: %w", err)
+	}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, devicePath)
+	if err != nil {
+		return err
+	}
+	call := connection.Object("org.freedesktop.UDisks2", objectPath).Call(
+		"org.freedesktop.UDisks2.Filesystem.Unmount",
+		dbus.FlagAllowInteractiveAuthorization,
+		map[string]dbus.Variant{})
+	if call.Err != nil {
+		return fmt.Errorf("не удалось отключить раздел: %w", call.Err)
+	}
+	return nil
 }
 
 func (m *Manager) SafelyRemove(devicePath string) error {
 	devicePath, err := blockDevicePath(devicePath)
 	if err != nil {
 		return err
+	}
+	if m.storageOperationActive() {
+		return errors.New("дождитесь завершения операции с накопителем")
+	}
+	if disk, found := m.findStorageDisk(devicePath); found {
+		return m.safelyRemoveDisk(disk)
 	}
 	device, err := m.deviceByPath(devicePath)
 	if err != nil {
@@ -468,6 +817,836 @@ func (m *Manager) SafelyRemove(devicePath string) error {
 	return nil
 }
 
+func (m *Manager) findStorageDisk(devicePath string) (StorageDisk, bool) {
+	disks, err := m.Storage()
+	if err != nil {
+		return StorageDisk{}, false
+	}
+	for _, disk := range disks {
+		if disk.Path == devicePath {
+			return disk, true
+		}
+		for _, region := range disk.Regions {
+			if region.Path == devicePath {
+				return disk, true
+			}
+		}
+	}
+	return StorageDisk{}, false
+}
+
+func (m *Manager) safelyRemoveDisk(disk StorageDisk) error {
+	if disk.System {
+		return errors.New("системный диск нельзя извлечь во время работы")
+	}
+	for _, region := range disk.Regions {
+		if region.Mounted && m.pathHasActiveOperation(region.MountPoint) {
+			return errors.New("дождитесь завершения файловой операции на этом накопителе")
+		}
+	}
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		return fmt.Errorf("подключение к службе накопителей: %w", err)
+	}
+	defer connection.Close()
+	for _, region := range disk.Regions {
+		if !region.Mounted || region.Path == "" {
+			continue
+		}
+		objectPath, resolveErr := resolveUDisksDevice(connection, region.Path)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		call := connection.Object("org.freedesktop.UDisks2", objectPath).Call(
+			"org.freedesktop.UDisks2.Filesystem.Unmount", dbus.FlagAllowInteractiveAuthorization,
+			map[string]dbus.Variant{})
+		if call.Err != nil {
+			return fmt.Errorf("не удалось отключить раздел %s: %w", region.Name, call.Err)
+		}
+	}
+	if !disk.Removable && !disk.Hotplug {
+		return nil
+	}
+	diskObjectPath, err := resolveUDisksDevice(connection, disk.Path)
+	if err != nil {
+		return err
+	}
+	driveValue, err := connection.Object("org.freedesktop.UDisks2", diskObjectPath).
+		GetProperty("org.freedesktop.UDisks2.Block.Drive")
+	if err != nil {
+		return fmt.Errorf("не удалось определить физический накопитель: %w", err)
+	}
+	drivePath, ok := driveValue.Value().(dbus.ObjectPath)
+	if !ok || !drivePath.IsValid() || drivePath == "/" {
+		return errors.New("накопитель отключён, но его питание нельзя выключить программно")
+	}
+	call := connection.Object("org.freedesktop.UDisks2", drivePath).Call(
+		"org.freedesktop.UDisks2.Drive.PowerOff", dbus.FlagAllowInteractiveAuthorization,
+		map[string]dbus.Variant{})
+	if call.Err != nil {
+		return fmt.Errorf("разделы отключены, но питание накопителя выключить не удалось: %w", call.Err)
+	}
+	return nil
+}
+
+func (m *Manager) StartFormat(devicePath, fileSystem, label string, confirmed bool) (Operation, error) {
+	if !confirmed {
+		return Operation{}, errors.New("форматирование не подтверждено")
+	}
+	devicePath, err := blockDevicePath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	device, err := m.deviceByPath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	if device.System {
+		return Operation{}, errors.New("нельзя форматировать системный или загрузочный раздел")
+	}
+	if device.Layered {
+		return Operation{}, errors.New("сначала отключите вложенное шифрование или логические тома")
+	}
+	if device.ReadOnly {
+		return Operation{}, errors.New("накопитель защищён от записи")
+	}
+	if device.MountPoint != "" && m.pathHasActiveOperation(device.MountPoint) {
+		return Operation{}, errors.New("дождитесь завершения файловой операции на этом накопителе")
+	}
+	fileSystem, label, err = normalizeFormatRequest(fileSystem, label)
+	if err != nil {
+		return Operation{}, err
+	}
+	if err := checkUDisksFormatAvailable(fileSystem); err != nil {
+		return Operation{}, err
+	}
+
+	id := fmt.Sprintf("format-%d-%d", time.Now().UnixMilli(), atomic.AddUint64(&m.nextOperation, 1))
+	operationName := label
+	if operationName == "" {
+		operationName = device.Name
+	}
+	operation := &Operation{
+		ID: id, Kind: "format", Name: operationName, Source: device.Path,
+		State: "running", TotalBytes: 3,
+		Detail: "Подготавливаем накопитель",
+	}
+	m.operationsMu.Lock()
+	if m.storageOperationActiveLocked() {
+		m.operationsMu.Unlock()
+		return Operation{}, errors.New("дождитесь завершения другой операции с накопителем")
+	}
+	m.operations[id] = operation
+	m.operationsMu.Unlock()
+	result := operation.snapshot()
+	go m.runFormat(operation, device, fileSystem, label)
+	return result, nil
+}
+
+func (m *Manager) StartCreatePartition(diskPath string, offsetBytes, sizeBytes int64, fileSystem, label string, confirmed bool) (Operation, error) {
+	if !confirmed {
+		return Operation{}, errors.New("создание раздела не подтверждено")
+	}
+	diskPath, err := blockDevicePath(diskPath)
+	if err != nil {
+		return Operation{}, err
+	}
+	disk, err := m.storageDiskByPath(diskPath)
+	if err != nil {
+		return Operation{}, err
+	}
+	if disk.ReadOnly {
+		return Operation{}, errors.New("накопитель защищён от записи")
+	}
+	if disk.PartitionTable != "gpt" && disk.PartitionTable != "dos" {
+		return Operation{}, errors.New("сначала создайте таблицу разделов GPT или MBR")
+	}
+	if offsetBytes < 1024*1024 || sizeBytes < 8*1024*1024 {
+		return Operation{}, errors.New("некорректный размер нового раздела")
+	}
+	if !diskContainsFreeRegion(disk, offsetBytes, sizeBytes) {
+		return Operation{}, errors.New("выбранная область больше доступного свободного места")
+	}
+	fileSystem, label, err = normalizeFormatRequest(fileSystem, label)
+	if err != nil {
+		return Operation{}, err
+	}
+	if err := checkUDisksFormatAvailable(fileSystem); err != nil {
+		return Operation{}, err
+	}
+	operation, err := m.beginStorageOperation("storage-create", label, disk.Path, 3)
+	if err != nil {
+		return Operation{}, err
+	}
+	go m.runCreatePartition(operation.ID, disk, offsetBytes, sizeBytes, fileSystem, label)
+	return operation, nil
+}
+
+func (m *Manager) StartDeletePartition(devicePath string, confirmed bool) (Operation, error) {
+	if !confirmed {
+		return Operation{}, errors.New("удаление раздела не подтверждено")
+	}
+	devicePath, err := blockDevicePath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	disk, region, err := m.storageRegionByPath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	if region.Kind != "partition" {
+		return Operation{}, errors.New("выбранный объект не является разделом")
+	}
+	if region.System {
+		return Operation{}, errors.New("нельзя удалить системный или загрузочный раздел")
+	}
+	if region.Layered {
+		return Operation{}, errors.New("сначала отключите вложенное шифрование или логические тома")
+	}
+	if disk.ReadOnly || region.ReadOnly {
+		return Operation{}, errors.New("накопитель защищён от записи")
+	}
+	operation, err := m.beginStorageOperation("storage-delete", region.Label, disk.Path, 2)
+	if err != nil {
+		return Operation{}, err
+	}
+	operation.Source = region.Path
+	m.replaceOperation(operation)
+	go m.runDeletePartition(operation.ID, region)
+	return operation, nil
+}
+
+func (m *Manager) StartCreatePartitionTable(diskPath, table string, confirmed bool) (Operation, error) {
+	if !confirmed {
+		return Operation{}, errors.New("очистка накопителя не подтверждена")
+	}
+	diskPath, err := blockDevicePath(diskPath)
+	if err != nil {
+		return Operation{}, err
+	}
+	disk, err := m.storageDiskByPath(diskPath)
+	if err != nil {
+		return Operation{}, err
+	}
+	table = strings.ToLower(strings.TrimSpace(table))
+	if table != "gpt" && table != "dos" {
+		return Operation{}, errors.New("поддерживаются таблицы разделов GPT и MBR")
+	}
+	if disk.System {
+		return Operation{}, errors.New("нельзя очистить диск, с которого запущена система")
+	}
+	if disk.ReadOnly {
+		return Operation{}, errors.New("накопитель защищён от записи")
+	}
+	for _, region := range disk.Regions {
+		if region.Mounted {
+			return Operation{}, errors.New("перед очисткой отключите все разделы накопителя")
+		}
+	}
+	operation, err := m.beginStorageOperation("storage-table", disk.Name, disk.Path, 2)
+	if err != nil {
+		return Operation{}, err
+	}
+	go m.runCreatePartitionTable(operation.ID, disk, table)
+	return operation, nil
+}
+
+func (m *Manager) StartResizePartition(devicePath string, sizeBytes int64, confirmed bool) (Operation, error) {
+	if !confirmed {
+		return Operation{}, errors.New("изменение размера не подтверждено")
+	}
+	devicePath, err := blockDevicePath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	disk, region, err := m.storageRegionByPath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	if region.Kind != "partition" || region.FileSystem == "" {
+		return Operation{}, errors.New("размер можно изменить только у раздела с файловой системой")
+	}
+	if region.System || region.Layered {
+		return Operation{}, errors.New("этот раздел нельзя изменять во время работы системы")
+	}
+	if disk.ReadOnly || region.ReadOnly {
+		return Operation{}, errors.New("накопитель защищён от записи")
+	}
+	if sizeBytes < 16*1024*1024 || sizeBytes == region.SizeBytes {
+		return Operation{}, errors.New("укажите другой допустимый размер раздела")
+	}
+	if sizeBytes > region.SizeBytes && !diskHasSpaceAfter(disk, region, sizeBytes-region.SizeBytes) {
+		return Operation{}, errors.New("после раздела недостаточно непрерывного свободного места")
+	}
+	operation, err := m.beginStorageOperation("storage-resize", region.Label, disk.Path, 4)
+	if err != nil {
+		return Operation{}, err
+	}
+	operation.Source = region.Path
+	m.replaceOperation(operation)
+	go m.runResizePartition(operation.ID, region, sizeBytes)
+	return operation, nil
+}
+
+func (m *Manager) StartFilesystemMaintenance(devicePath string, repair, confirmed bool) (Operation, error) {
+	if repair && !confirmed {
+		return Operation{}, errors.New("исправление файловой системы не подтверждено")
+	}
+	devicePath, err := blockDevicePath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	disk, region, err := m.storageRegionByPath(devicePath)
+	if err != nil {
+		return Operation{}, err
+	}
+	if region.FileSystem == "" || region.Layered {
+		return Operation{}, errors.New("для этого раздела проверка недоступна")
+	}
+	if repair && (disk.ReadOnly || region.ReadOnly) {
+		return Operation{}, errors.New("раздел защищён от записи")
+	}
+	if region.System {
+		return Operation{}, errors.New("системный раздел нельзя отключить для проверки во время работы")
+	}
+	kind := "storage-check"
+	if repair {
+		kind = "storage-repair"
+	}
+	operation, err := m.beginStorageOperation(kind, region.Label, disk.Path, 3)
+	if err != nil {
+		return Operation{}, err
+	}
+	operation.Source = region.Path
+	m.replaceOperation(operation)
+	go m.runFilesystemMaintenance(operation.ID, region, repair)
+	return operation, nil
+}
+
+func (m *Manager) SetFilesystemLabel(devicePath, label string) error {
+	devicePath, err := blockDevicePath(devicePath)
+	if err != nil {
+		return err
+	}
+	_, region, err := m.storageRegionByPath(devicePath)
+	if err != nil {
+		return err
+	}
+	if region.System || region.ReadOnly || region.Layered {
+		return errors.New("имя этого раздела нельзя изменить")
+	}
+	fileSystem := region.FileSystem
+	if fileSystem == "ntfs3" {
+		fileSystem = "ntfs"
+	}
+	_, label, err = normalizeFormatRequest(fileSystem, label)
+	if err != nil {
+		return err
+	}
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		return fmt.Errorf("подключение к службе накопителей: %w", err)
+	}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, devicePath)
+	if err != nil {
+		return err
+	}
+	call := connection.Object("org.freedesktop.UDisks2", objectPath).Call(
+		"org.freedesktop.UDisks2.Filesystem.SetLabel", dbus.FlagAllowInteractiveAuthorization,
+		label, map[string]dbus.Variant{})
+	if call.Err != nil {
+		return fmt.Errorf("не удалось изменить имя раздела: %w", call.Err)
+	}
+	return nil
+}
+
+func (m *Manager) beginStorageOperation(kind, name, source string, steps int64) (Operation, error) {
+	if strings.TrimSpace(name) == "" {
+		name = filepath.Base(source)
+	}
+	operation := &Operation{
+		ID:   fmt.Sprintf("storage-%d-%d", time.Now().UnixMilli(), atomic.AddUint64(&m.nextOperation, 1)),
+		Kind: kind, Name: name, Source: source, State: "running", TotalBytes: steps,
+		Detail: "Подготавливаем операцию",
+	}
+	m.operationsMu.Lock()
+	defer m.operationsMu.Unlock()
+	if m.storageOperationActiveLocked() {
+		return Operation{}, errors.New("дождитесь завершения другой операции с накопителем")
+	}
+	m.operations[operation.ID] = operation
+	return operation.snapshot(), nil
+}
+
+func (m *Manager) replaceOperation(replacement Operation) {
+	m.operationsMu.Lock()
+	if operation := m.operations[replacement.ID]; operation != nil {
+		cancel := operation.cancel
+		*operation = replacement
+		operation.cancel = cancel
+	}
+	m.operationsMu.Unlock()
+}
+
+func (m *Manager) storageDiskByPath(path string) (StorageDisk, error) {
+	disks, err := m.Storage()
+	if err != nil {
+		return StorageDisk{}, err
+	}
+	for _, disk := range disks {
+		if disk.Path == path {
+			return disk, nil
+		}
+	}
+	return StorageDisk{}, errors.New("физический накопитель не найден")
+}
+
+func (m *Manager) storageRegionByPath(path string) (StorageDisk, StorageRegion, error) {
+	disks, err := m.Storage()
+	if err != nil {
+		return StorageDisk{}, StorageRegion{}, err
+	}
+	for _, disk := range disks {
+		for _, region := range disk.Regions {
+			if region.Path == path {
+				return disk, region, nil
+			}
+		}
+	}
+	return StorageDisk{}, StorageRegion{}, errors.New("раздел не найден")
+}
+
+func diskContainsFreeRegion(disk StorageDisk, offsetBytes, sizeBytes int64) bool {
+	requestedEnd := offsetBytes + sizeBytes
+	if requestedEnd < offsetBytes {
+		return false
+	}
+	for _, region := range disk.Regions {
+		if region.Kind != "free" {
+			continue
+		}
+		if offsetBytes >= region.OffsetBytes && requestedEnd <= region.OffsetBytes+region.SizeBytes {
+			return true
+		}
+	}
+	return false
+}
+
+func diskHasSpaceAfter(disk StorageDisk, selected StorageRegion, extraBytes int64) bool {
+	selectedEnd := selected.OffsetBytes + selected.SizeBytes
+	for _, region := range disk.Regions {
+		if region.Kind == "free" && region.OffsetBytes >= selectedEnd &&
+			region.OffsetBytes-selectedEnd <= 1024*1024 &&
+			region.SizeBytes >= extraBytes {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Manager) runCreatePartition(operationID string, disk StorageDisk, offsetBytes, sizeBytes int64, fileSystem, label string) {
+	defer m.scheduleOperationExpiry(operationID)
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("подключение к службе накопителей: %w", err))
+		return
+	}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, disk.Path)
+	if err != nil {
+		m.finishOperation(operationID, "failed", err)
+		return
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = 1
+		item.Detail = "Создаём раздел"
+	})
+	formatOptions := map[string]dbus.Variant{
+		"update-partition-type": dbus.MakeVariant(true),
+		"take-ownership":        dbus.MakeVariant(fileSystem == "ext4" || fileSystem == "btrfs"),
+	}
+	if label != "" {
+		formatOptions["label"] = dbus.MakeVariant(label)
+	}
+	var created dbus.ObjectPath
+	call := connection.Object("org.freedesktop.UDisks2", objectPath).Call(
+		"org.freedesktop.UDisks2.PartitionTable.CreatePartitionAndFormat",
+		dbus.FlagAllowInteractiveAuthorization,
+		uint64(offsetBytes), uint64(sizeBytes), "", "",
+		map[string]dbus.Variant{}, fileSystem, formatOptions)
+	if call.Err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("не удалось создать раздел: %w", call.Err))
+		return
+	}
+	if err := call.Store(&created); err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("не удалось определить созданный раздел: %w", err))
+		return
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = 2
+		item.Detail = "Подключаем новый раздел"
+	})
+	mountPoint, mountErr := mountFormattedDevice(connection, created)
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = item.TotalBytes
+		item.State = "completed"
+		if mountErr == nil {
+			item.Destination = mountPoint
+			item.Detail = "Раздел создан и подключён"
+		} else {
+			item.Detail = "Раздел создан. Подключите его кнопкой"
+		}
+	})
+}
+
+func (m *Manager) runDeletePartition(operationID string, region StorageRegion) {
+	defer m.scheduleOperationExpiry(operationID)
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("подключение к службе накопителей: %w", err))
+		return
+	}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, region.Path)
+	if err != nil {
+		m.finishOperation(operationID, "failed", err)
+		return
+	}
+	object := connection.Object("org.freedesktop.UDisks2", objectPath)
+	if region.Mounted {
+		m.updateOperation(operationID, func(item *Operation) { item.Detail = "Отключаем раздел" })
+		call := object.Call("org.freedesktop.UDisks2.Filesystem.Unmount", dbus.FlagAllowInteractiveAuthorization, map[string]dbus.Variant{})
+		if call.Err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("не удалось отключить раздел: %w", call.Err))
+			return
+		}
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = 1
+		item.Detail = "Удаляем раздел"
+	})
+	call := object.Call("org.freedesktop.UDisks2.Partition.Delete", dbus.FlagAllowInteractiveAuthorization,
+		map[string]dbus.Variant{"tear-down": dbus.MakeVariant(true)})
+	if call.Err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("не удалось удалить раздел: %w", call.Err))
+		return
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = item.TotalBytes
+		item.Detail = "Раздел удалён"
+		item.State = "completed"
+	})
+}
+
+func (m *Manager) runCreatePartitionTable(operationID string, disk StorageDisk, table string) {
+	defer m.scheduleOperationExpiry(operationID)
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("подключение к службе накопителей: %w", err))
+		return
+	}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, disk.Path)
+	if err != nil {
+		m.finishOperation(operationID, "failed", err)
+		return
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = 1
+		item.Detail = "Создаём новую таблицу разделов"
+	})
+	call := connection.Object("org.freedesktop.UDisks2", objectPath).Call(
+		"org.freedesktop.UDisks2.Block.Format", dbus.FlagAllowInteractiveAuthorization,
+		table, map[string]dbus.Variant{"tear-down": dbus.MakeVariant(true)})
+	if call.Err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("не удалось создать таблицу разделов: %w", call.Err))
+		return
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = item.TotalBytes
+		item.Detail = "Таблица разделов создана"
+		item.State = "completed"
+	})
+}
+
+func (m *Manager) runResizePartition(operationID string, region StorageRegion, sizeBytes int64) {
+	defer m.scheduleOperationExpiry(operationID)
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("подключение к службе накопителей: %w", err))
+		return
+	}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, region.Path)
+	if err != nil {
+		m.finishOperation(operationID, "failed", err)
+		return
+	}
+	object := connection.Object("org.freedesktop.UDisks2", objectPath)
+	if region.Mounted {
+		m.updateOperation(operationID, func(item *Operation) { item.Detail = "Отключаем раздел" })
+		call := object.Call("org.freedesktop.UDisks2.Filesystem.Unmount", dbus.FlagAllowInteractiveAuthorization, map[string]dbus.Variant{})
+		if call.Err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("не удалось отключить раздел: %w", call.Err))
+			return
+		}
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = 1
+		item.Detail = "Изменяем размер файловой системы"
+	})
+	options := map[string]dbus.Variant{}
+	if sizeBytes < region.SizeBytes {
+		if call := object.Call("org.freedesktop.UDisks2.Filesystem.Resize", dbus.FlagAllowInteractiveAuthorization, uint64(sizeBytes), options); call.Err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("не удалось уменьшить файловую систему: %w", call.Err))
+			return
+		}
+		m.updateOperation(operationID, func(item *Operation) { item.ProcessedBytes = 2; item.Detail = "Уменьшаем раздел" })
+		if call := object.Call("org.freedesktop.UDisks2.Partition.Resize", dbus.FlagAllowInteractiveAuthorization, uint64(sizeBytes), options); call.Err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("файловая система уменьшена, но границу раздела изменить не удалось: %w", call.Err))
+			return
+		}
+	} else {
+		if call := object.Call("org.freedesktop.UDisks2.Partition.Resize", dbus.FlagAllowInteractiveAuthorization, uint64(sizeBytes), options); call.Err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("не удалось увеличить раздел: %w", call.Err))
+			return
+		}
+		m.updateOperation(operationID, func(item *Operation) {
+			item.ProcessedBytes = 2
+			item.Detail = "Расширяем файловую систему"
+		})
+		if call := object.Call("org.freedesktop.UDisks2.Filesystem.Resize", dbus.FlagAllowInteractiveAuthorization, uint64(0), options); call.Err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("раздел увеличен, но файловую систему расширить не удалось: %w", call.Err))
+			return
+		}
+	}
+	m.updateOperation(operationID, func(item *Operation) { item.ProcessedBytes = 3; item.Detail = "Завершаем операцию" })
+	if region.Mounted {
+		if _, err := mountFormattedDevice(connection, objectPath); err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("размер изменён, но подключить раздел обратно не удалось: %w", err))
+			return
+		}
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = item.TotalBytes
+		item.Detail = "Размер раздела изменён"
+		item.State = "completed"
+	})
+}
+
+func (m *Manager) runFilesystemMaintenance(operationID string, region StorageRegion, repair bool) {
+	defer m.scheduleOperationExpiry(operationID)
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("подключение к службе накопителей: %w", err))
+		return
+	}
+	defer connection.Close()
+	objectPath, err := resolveUDisksDevice(connection, region.Path)
+	if err != nil {
+		m.finishOperation(operationID, "failed", err)
+		return
+	}
+	object := connection.Object("org.freedesktop.UDisks2", objectPath)
+	if region.Mounted {
+		m.updateOperation(operationID, func(item *Operation) { item.Detail = "Отключаем раздел" })
+		call := object.Call("org.freedesktop.UDisks2.Filesystem.Unmount", dbus.FlagAllowInteractiveAuthorization, map[string]dbus.Variant{})
+		if call.Err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("не удалось отключить раздел: %w", call.Err))
+			return
+		}
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = 1
+		item.Detail = map[bool]string{true: "Исправляем файловую систему", false: "Проверяем файловую систему"}[repair]
+	})
+	method := "org.freedesktop.UDisks2.Filesystem.Check"
+	if repair {
+		method = "org.freedesktop.UDisks2.Filesystem.Repair"
+	}
+	var successful bool
+	call := object.Call(method, dbus.FlagAllowInteractiveAuthorization, map[string]dbus.Variant{})
+	if call.Err != nil {
+		m.finishOperation(operationID, "failed", fmt.Errorf("операция с файловой системой не выполнена: %w", call.Err))
+		return
+	}
+	if err := call.Store(&successful); err != nil || !successful {
+		if err == nil {
+			err = errors.New("файловая система требует дополнительного восстановления")
+		}
+		m.finishOperation(operationID, "failed", err)
+		return
+	}
+	m.updateOperation(operationID, func(item *Operation) { item.ProcessedBytes = 2; item.Detail = "Завершаем операцию" })
+	if region.Mounted {
+		if _, err := mountFormattedDevice(connection, objectPath); err != nil {
+			m.finishOperation(operationID, "failed", fmt.Errorf("операция выполнена, но подключить раздел обратно не удалось: %w", err))
+			return
+		}
+	}
+	m.updateOperation(operationID, func(item *Operation) {
+		item.ProcessedBytes = item.TotalBytes
+		item.Detail = map[bool]string{true: "Файловая система исправлена", false: "Ошибок не найдено"}[repair]
+		item.State = "completed"
+	})
+}
+
+func (m *Manager) runFormat(operation *Operation, device Device, fileSystem, label string) {
+	defer m.scheduleOperationExpiry(operation.ID)
+	connection, err := dbus.ConnectSystemBus()
+	if err != nil {
+		m.finishOperation(operation.ID, "failed", fmt.Errorf("подключение к службе накопителей: %w", err))
+		return
+	}
+	defer connection.Close()
+
+	objectPath, err := resolveUDisksDevice(connection, device.Path)
+	if err != nil {
+		m.finishOperation(operation.ID, "failed", err)
+		return
+	}
+	object := connection.Object("org.freedesktop.UDisks2", objectPath)
+	interactive := dbus.FlagAllowInteractiveAuthorization
+	if device.Mounted {
+		call := object.Call("org.freedesktop.UDisks2.Filesystem.Unmount", interactive, map[string]dbus.Variant{})
+		if call.Err != nil {
+			m.finishOperation(operation.ID, "failed", fmt.Errorf("не удалось отключить накопитель: %w", call.Err))
+			return
+		}
+	}
+	m.updateOperation(operation.ID, func(item *Operation) {
+		item.ProcessedBytes = 1
+		item.Detail = "Создаём файловую систему " + formatDisplayName(fileSystem)
+	})
+
+	options := map[string]dbus.Variant{
+		"update-partition-type": dbus.MakeVariant(true),
+		"take-ownership":        dbus.MakeVariant(fileSystem == "ext4" || fileSystem == "btrfs"),
+	}
+	if label != "" {
+		options["label"] = dbus.MakeVariant(label)
+	}
+	call := object.Call("org.freedesktop.UDisks2.Block.Format", interactive, fileSystem, options)
+	if call.Err != nil {
+		formatErr := fmt.Errorf("форматирование не выполнено: %w", call.Err)
+		if device.Mounted {
+			if _, mountErr := mountFormattedDevice(connection, objectPath); mountErr != nil {
+				formatErr = fmt.Errorf("%w; накопитель также не удалось подключить обратно: %v", formatErr, mountErr)
+			}
+		}
+		m.finishOperation(operation.ID, "failed", formatErr)
+		return
+	}
+	m.updateOperation(operation.ID, func(item *Operation) {
+		item.ProcessedBytes = 2
+		item.Detail = "Подключаем готовый накопитель"
+	})
+
+	mountPoint, err := mountFormattedDevice(connection, objectPath)
+	if err != nil {
+		m.updateOperation(operation.ID, func(item *Operation) {
+			item.ProcessedBytes = item.TotalBytes
+			item.Detail = "Готово. Подключите накопитель кнопкой"
+			item.State = "completed"
+		})
+		return
+	}
+	m.updateOperation(operation.ID, func(item *Operation) {
+		item.ProcessedBytes = item.TotalBytes
+		item.Destination = mountPoint
+		item.Detail = "Накопитель готов"
+		item.State = "completed"
+	})
+}
+
+func resolveUDisksDevice(connection *dbus.Conn, devicePath string) (dbus.ObjectPath, error) {
+	var devices []dbus.ObjectPath
+	call := connection.Object("org.freedesktop.UDisks2", dbus.ObjectPath("/org/freedesktop/UDisks2/Manager")).Call(
+		"org.freedesktop.UDisks2.Manager.ResolveDevice", 0,
+		map[string]dbus.Variant{"path": dbus.MakeVariant(devicePath)}, map[string]dbus.Variant{})
+	if call.Err != nil {
+		return "", fmt.Errorf("поиск накопителя в UDisks: %w", call.Err)
+	}
+	if err := call.Store(&devices); err != nil {
+		return "", fmt.Errorf("поиск накопителя в UDisks: %w", err)
+	}
+	if len(devices) != 1 || !devices[0].IsValid() {
+		return "", errors.New("UDisks не смог однозначно определить накопитель")
+	}
+	return devices[0], nil
+}
+
+func mountFormattedDevice(connection *dbus.Conn, objectPath dbus.ObjectPath) (string, error) {
+	object := connection.Object("org.freedesktop.UDisks2", objectPath)
+	deadline := time.Now().Add(20 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		var mountPoint string
+		call := object.Call("org.freedesktop.UDisks2.Filesystem.Mount", dbus.FlagAllowInteractiveAuthorization, map[string]dbus.Variant{})
+		if call.Err == nil {
+			if err := call.Store(&mountPoint); err == nil && mountPoint != "" {
+				return mountPoint, nil
+			} else if err != nil {
+				lastErr = err
+			}
+		} else {
+			lastErr = call.Err
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	if lastErr == nil {
+		lastErr = errors.New("точка подключения не появилась")
+	}
+	return "", lastErr
+}
+
+func formatDisplayName(fileSystem string) string {
+	switch fileSystem {
+	case "vfat":
+		return "FAT32"
+	case "exfat":
+		return "exFAT"
+	case "btrfs":
+		return "Btrfs"
+	case "ntfs":
+		return "NTFS"
+	default:
+		return "EXT4"
+	}
+}
+
+func (m *Manager) formatActiveForDevice(devicePath string) bool {
+	m.operationsMu.RLock()
+	defer m.operationsMu.RUnlock()
+	return m.formatActiveForDeviceLocked(devicePath)
+}
+
+func (m *Manager) formatActiveForDeviceLocked(devicePath string) bool {
+	for _, operation := range m.operations {
+		if operation.Kind == "format" && operation.Source == devicePath && operation.State == "running" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Manager) storageOperationActiveLocked() bool {
+	for _, operation := range m.operations {
+		if (operation.State == "running" || operation.State == "scanning") &&
+			(operation.Kind == "format" || strings.HasPrefix(operation.Kind, "storage-")) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Manager) storageOperationActive() bool {
+	m.operationsMu.RLock()
+	defer m.operationsMu.RUnlock()
+	return m.storageOperationActiveLocked()
+}
+
 func (m *Manager) deviceByPath(path string) (Device, error) {
 	devices, err := m.Devices()
 	if err != nil {
@@ -476,6 +1655,24 @@ func (m *Manager) deviceByPath(path string) (Device, error) {
 	for _, device := range devices {
 		if device.Path == path {
 			return device, nil
+		}
+	}
+	disks, storageErr := m.Storage()
+	if storageErr == nil {
+		for _, disk := range disks {
+			for _, region := range disk.Regions {
+				if region.Path != path {
+					continue
+				}
+				return Device{
+					Name: region.Name, Path: region.Path, ParentPath: disk.Path,
+					Label: region.Label, FileSystem: region.FileSystem,
+					MountPoint: region.MountPoint, SizeBytes: region.SizeBytes,
+					Removable: disk.Removable || disk.Hotplug, ReadOnly: disk.ReadOnly || region.ReadOnly,
+					Mounted: region.Mounted, System: region.System, Layered: region.Layered,
+					Compatibility: region.Compatibility,
+				}, nil
+			}
 		}
 	}
 	return Device{}, errors.New("накопитель не найден")
@@ -546,6 +1743,10 @@ func (m *Manager) CancelOperation(id string) error {
 	if operation == nil {
 		m.operationsMu.RUnlock()
 		return errors.New("операция не найдена")
+	}
+	if operation.Kind == "format" || strings.HasPrefix(operation.Kind, "storage-") {
+		m.operationsMu.RUnlock()
+		return errors.New("операцию с накопителем нельзя прерывать")
 	}
 	cancel := operation.cancel
 	m.operationsMu.RUnlock()

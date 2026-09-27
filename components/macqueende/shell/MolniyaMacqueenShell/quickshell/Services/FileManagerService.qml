@@ -20,6 +20,10 @@ Singleton {
     property var entries: []
     property var selectedEntry: null
     property var devices: []
+    property var storageDisks: []
+    property var selectedDisk: null
+    property var selectedRegion: null
+    property bool storageLoading: false
     property var clipboardEntry: null
     property bool clipboardMove: false
     property var operation: null
@@ -46,7 +50,11 @@ Singleton {
         running: root.available
         repeat: true
         triggeredOnStart: true
-        onTriggered: root.refreshDevices()
+        onTriggered: {
+            root.refreshDevices();
+            if (root.viewMode === "storage" && !root.operationActive())
+                root.refreshStorage();
+        }
     }
 
     Timer {
@@ -89,6 +97,8 @@ Singleton {
     function refresh() {
         if (viewMode === "trash")
             openTrash();
+        else if (viewMode === "storage")
+            refreshStorage();
         else
             navigate(currentPath);
     }
@@ -106,6 +116,12 @@ Singleton {
             else
                 ToastService.showError(response?.error || "Не удалось открыть корзину.", "", "", "files");
         });
+    }
+
+    function openStorage() {
+        viewMode = "storage";
+        selectedEntry = null;
+        refreshStorage();
     }
 
     function setShowHidden(value) {
@@ -251,11 +267,27 @@ Singleton {
                 return;
             operation = response.result;
             if (operation.state === "completed") {
-                ToastService.showInfo(operation.kind === "move" ? "Перемещение завершено." : "Копирование завершено.",
-                                      operation.name || "", "", "files");
-                refresh();
+                if (operation.kind === "format") {
+                    ToastService.showInfo("Форматирование завершено.", operation.detail || "Накопитель готов", "", "files");
+                    refreshDevices();
+                    if (operation.destination)
+                        navigate(operation.destination);
+                } else if ((operation.kind || "").startsWith("storage-")) {
+                    ToastService.showInfo("Операция с накопителем завершена.", operation.detail || "", "", "files");
+                    refreshDevices();
+                    refreshStorage();
+                } else {
+                    ToastService.showInfo(operation.kind === "move" ? "Перемещение завершено." : "Копирование завершено.",
+                                          operation.name || "", "", "files");
+                    refresh();
+                }
             } else if (operation.state === "failed") {
-                ToastService.showError("Файловая операция не выполнена.", operation.error || "", "", "files");
+                ToastService.showError(operation.kind === "format" ? "Форматирование не выполнено." : "Файловая операция не выполнена.",
+                                       operation.error || "", "", "files");
+                if (operation.kind === "format" || (operation.kind || "").startsWith("storage-"))
+                    refreshDevices();
+                if ((operation.kind || "").startsWith("storage-"))
+                    refreshStorage();
             }
         });
     }
@@ -281,6 +313,122 @@ Singleton {
         DMSService.filesDevices(response => {
             if (response?.result)
                 devices = response.result;
+        });
+    }
+
+    function refreshStorage() {
+        if (!available)
+            return;
+        storageLoading = true;
+        const selectedDiskPath = selectedDisk?.path || "";
+        const selectedRegionPath = selectedRegion?.path || "";
+        const selectedRegionOffset = Number(selectedRegion?.offsetBytes || -1);
+        DMSService.filesStorage(response => {
+            storageLoading = false;
+            if (!response?.result) {
+                ToastService.showError("Не удалось получить список дисков.", response?.error || "", "", "files");
+                return;
+            }
+            storageDisks = response.result;
+            selectedDisk = storageDisks.find(disk => disk.path === selectedDiskPath) || storageDisks[0] || null;
+            if (!selectedDisk) {
+                selectedRegion = null;
+                return;
+            }
+            selectedRegion = (selectedDisk.regions || []).find(region =>
+                (selectedRegionPath && region.path === selectedRegionPath)
+                || (!selectedRegionPath && Number(region.offsetBytes) === selectedRegionOffset)) || null;
+        });
+    }
+
+    function selectStorageDisk(disk) {
+        selectedDisk = disk;
+        selectedRegion = null;
+    }
+
+    function selectStorageRegion(region) {
+        selectedRegion = region;
+    }
+
+    function mountRegion(region) {
+        if (!region?.path)
+            return;
+        DMSService.filesMount(region.path, response => {
+            if (response?.error)
+                ToastService.showError("Не удалось подключить раздел.", response.error, "", "files");
+            else {
+                refreshDevices();
+                refreshStorage();
+            }
+        });
+    }
+
+    function unmountRegion(region) {
+        if (!region?.path)
+            return;
+        DMSService.filesUnmount(region.path, response => {
+            if (response?.error)
+                ToastService.showError("Не удалось отключить раздел.", response.error, "", "files");
+            else {
+                if (region.mountPoint && currentPath.startsWith(region.mountPoint))
+                    navigate(homePath);
+                refreshDevices();
+                refreshStorage();
+            }
+        });
+    }
+
+    function _acceptStorageOperation(response, failureTitle, callback) {
+        if (response?.result) {
+            operation = response.result;
+            if (callback)
+                callback(true);
+        } else {
+            ToastService.showError(failureTitle, response?.error || "", "", "files");
+            if (callback)
+                callback(false);
+        }
+    }
+
+    function createPartition(disk, region, sizeBytes, fileSystem, label, callback) {
+        DMSService.filesPartitionCreate(disk.path, Number(region.offsetBytes), Number(sizeBytes), fileSystem, label,
+            response => _acceptStorageOperation(response, "Не удалось создать раздел.", callback));
+    }
+
+    function deletePartition(region, callback) {
+        DMSService.filesPartitionDelete(region.path,
+            response => _acceptStorageOperation(response, "Не удалось удалить раздел.", callback));
+    }
+
+    function createPartitionTable(disk, table, callback) {
+        DMSService.filesPartitionTableCreate(disk.path, table,
+            response => _acceptStorageOperation(response, "Не удалось очистить накопитель.", callback));
+    }
+
+    function resizePartition(region, sizeBytes, callback) {
+        DMSService.filesPartitionResize(region.path, Number(sizeBytes),
+            response => _acceptStorageOperation(response, "Не удалось изменить размер раздела.", callback));
+    }
+
+    function checkFilesystem(region, repair, callback) {
+        const done = response => _acceptStorageOperation(response,
+            repair ? "Не удалось исправить файловую систему." : "Не удалось проверить файловую систему.", callback);
+        if (repair)
+            DMSService.filesFilesystemRepair(region.path, done);
+        else
+            DMSService.filesFilesystemCheck(region.path, done);
+    }
+
+    function setFilesystemLabel(region, label, callback) {
+        DMSService.filesFilesystemLabel(region.path, label, response => {
+            if (response?.error) {
+                ToastService.showError("Не удалось изменить имя раздела.", response.error, "", "files");
+                if (callback) callback(false);
+            } else {
+                refreshDevices();
+                refreshStorage();
+                if (callback) callback(true);
+            }
         });
     }
 
@@ -314,6 +462,46 @@ Singleton {
                     navigate(homePath);
                 ToastService.showInfo("Накопитель можно безопасно извлечь.", device.label || device.name, "", "files");
                 refreshDevices();
+            }
+        });
+    }
+
+    function safelyRemoveDisk(disk) {
+        if (!disk)
+            return;
+        const activeMount = (disk.regions || []).find(region => region.mountPoint
+            && (currentPath === region.mountPoint || currentPath.startsWith(region.mountPoint + "/")));
+        if (activeMount)
+            navigate(homePath);
+        DMSService.filesSafelyRemove(disk.path, response => {
+            if (response?.error) {
+                ToastService.showError("Накопитель пока нельзя извлечь.", response.error, "", "files");
+            } else {
+                ToastService.showInfo("Накопитель можно безопасно извлечь.", disk.model || disk.name, "", "files");
+                refreshDevices();
+                refreshStorage();
+            }
+        });
+    }
+
+    function formatDevice(device, fileSystem, label, callback) {
+        if (!device || operationActive()) {
+            if (callback)
+                callback(false);
+            return;
+        }
+        if (device.mountPoint && (currentPath === device.mountPoint
+                || currentPath.startsWith(device.mountPoint + "/")))
+            navigate(homePath);
+        DMSService.filesFormat(device.path, fileSystem, label, response => {
+            if (response?.result) {
+                operation = response.result;
+                if (callback)
+                    callback(true);
+            } else {
+                ToastService.showError("Не удалось начать форматирование.", response?.error || "", "", "files");
+                if (callback)
+                    callback(false);
             }
         });
     }

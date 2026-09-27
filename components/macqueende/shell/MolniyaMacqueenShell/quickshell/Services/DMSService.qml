@@ -790,14 +790,74 @@ Singleton {
         sendRequest("files.devices", null, callback);
     }
 
+    function filesStorage(callback) {
+        sendRequest("files.storage", null, callback);
+    }
+
     function filesMount(path, callback) {
         sendRequest("files.mount", {"path": path}, callback);
+    }
+
+    function filesUnmount(path, callback) {
+        sendRequest("files.unmount", {"path": path}, callback);
     }
 
     function filesSafelyRemove(path, callback) {
         sendRequest("files.safelyRemove", {
             "path": path
         }, callback);
+    }
+
+    function filesFormat(path, fileSystem, label, callback) {
+        sendRequest("files.format", {
+            "path": path,
+            "fileSystem": fileSystem,
+            "label": label,
+            "confirmed": true
+        }, callback);
+    }
+
+    function filesPartitionCreate(diskPath, offsetBytes, sizeBytes, fileSystem, label, callback) {
+        sendRequest("files.partitionCreate", {
+            "diskPath": diskPath,
+            "offsetBytes": offsetBytes,
+            "sizeBytes": sizeBytes,
+            "fileSystem": fileSystem,
+            "label": label,
+            "confirmed": true
+        }, callback);
+    }
+
+    function filesPartitionDelete(path, callback) {
+        sendRequest("files.partitionDelete", {"path": path, "confirmed": true}, callback);
+    }
+
+    function filesPartitionTableCreate(diskPath, table, callback) {
+        sendRequest("files.partitionTableCreate", {
+            "diskPath": diskPath,
+            "table": table,
+            "confirmed": true
+        }, callback);
+    }
+
+    function filesPartitionResize(path, sizeBytes, callback) {
+        sendRequest("files.partitionResize", {
+            "path": path,
+            "sizeBytes": sizeBytes,
+            "confirmed": true
+        }, callback);
+    }
+
+    function filesFilesystemCheck(path, callback) {
+        sendRequest("files.filesystemCheck", {"path": path, "confirmed": true}, callback);
+    }
+
+    function filesFilesystemRepair(path, callback) {
+        sendRequest("files.filesystemRepair", {"path": path, "confirmed": true}, callback);
+    }
+
+    function filesFilesystemLabel(path, label, callback) {
+        sendRequest("files.filesystemLabel", {"path": path, "label": label}, callback);
     }
 
     function filesTransfer(source, destination, move, callback) {
@@ -826,6 +886,14 @@ Singleton {
 
     function filesArchive(path, format, callback) {
         sendRequest("files.archive", {"path": path, "format": format}, callback);
+    }
+
+    function timeStatus(callback) {
+        sendRequest("timedate.status", null, callback);
+    }
+
+    function timeSetAutomatic(enabled, callback) {
+        sendRequest("timedate.setAutomatic", {"enabled": enabled === true}, callback);
     }
 
     function sysupdateRefresh(force, callback) {

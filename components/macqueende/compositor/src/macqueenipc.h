@@ -13,6 +13,7 @@
 
 #include "effect/globals.h"
 #include "input_event.h"
+#include "input_event_spy.h"
 
 namespace KWin
 {
@@ -20,7 +21,7 @@ namespace KWin
 class Window;
 class Workspace;
 
-class MacqueenIpc : public QObject
+class MacqueenIpc : public QObject, public InputEventSpy
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.macqueen.Compositor1")
@@ -71,6 +72,9 @@ private Q_SLOTS:
     bool overviewBorderActivated(ElectricBorder border);
     void handleRawKeyState(quint32 keyCode, KeyboardKeyState state);
 
+private:
+    void pointerButton(PointerButtonEvent *event) override;
+
 Q_SIGNALS:
     void windowAdded(const QString &id);
     void windowRemoved(const QString &id);
@@ -104,6 +108,8 @@ private:
     quint64 m_screenshotShortcutTriggerCount = 0;
     QString m_microphoneShortcut;
     quint32 m_microphonePressedKey = 0;
+    quint32 m_microphonePressedMouseButton = 0;
+    bool m_microphoneModifierShortcutPressed = false;
     const QString m_serviceName = QStringLiteral("org.macqueen.Compositor1");
 };
 

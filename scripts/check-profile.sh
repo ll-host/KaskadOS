@@ -82,6 +82,10 @@ grep -Fq 'install=kaskados-desktop.install' "${DESKTOP_PKGBUILD}" \
   || die 'пакет kaskados-desktop не подключает настройку Bluetooth'
 grep -Fq 'systemctl enable bluetooth.service' "${DESKTOP_INSTALL}" \
   || die 'обновление kaskados-desktop не включает службу Bluetooth'
+grep -A2 -F 'name: "systemd-timesyncd.service"' \
+  "${PROJECT_DIR}/components/calamares/src/modules/services-systemd/services-systemd.conf" \
+  | grep -Fq 'action: "enable"' \
+  || die 'установщик не включает автоматическую синхронизацию времени'
 
 readonly KEYRING_INSTALL="${PROJECT_DIR}/repository/packages/kaskados-keyring/kaskados-keyring.install"
 grep -Fq 'usr/bin/pacman-key -l >/dev/null 2>&1' "${KEYRING_INSTALL}" \
