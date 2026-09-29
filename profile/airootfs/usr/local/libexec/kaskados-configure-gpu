@@ -34,6 +34,10 @@ nvidia_modeset
 nvidia_uvm
 nvidia_drm
 EOF
+  arch-chroot "${TARGET_ROOT}" systemctl enable \
+    nvidia-suspend.service \
+    nvidia-resume.service \
+    nvidia-hibernate.service
   printf 'Обнаружена NVIDIA: закрытый драйвер 580xx и PRIME оставлены в системе.\n'
   exit 0
 fi

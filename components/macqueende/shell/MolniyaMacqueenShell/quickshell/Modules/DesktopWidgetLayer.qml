@@ -66,12 +66,16 @@ Variants {
             SystemMonitorWidget {}
         }
 
+        property Component videoComponent: Component {
+            VideoWidget {}
+        }
+
         property Instantiator widgetInstantiator: Instantiator {
             model: ScriptModel {
                 objectProp: "id"
                 // Reversed so the top of the list maps last and renders in front.
                 values: screenDelegate.rebuilding ? [] : [...(SettingsData.desktopWidgetInstances || [])]
-                    .filter(inst => inst.widgetType === "desktopClock" || inst.widgetType === "systemMonitor")
+                    .filter(inst => inst.widgetType === "desktopClock" || inst.widgetType === "systemMonitor" || inst.widgetType === "video")
                     .reverse()
             }
 
@@ -101,6 +105,8 @@ Variants {
                         return screenDelegate.clockComponent;
                     case "systemMonitor":
                         return screenDelegate.systemMonitorComponent;
+                    case "video":
+                        return screenDelegate.videoComponent;
                     default:
                         return null;
                     }

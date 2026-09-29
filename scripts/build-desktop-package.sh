@@ -30,9 +30,34 @@ die() {
   exit 1
 }
 
-for command_name in cmake curl go make makepkg ninja sha256sum tar; do
+for command_name in cmake curl go make makepkg ninja pacman sha256sum tar; do
   command -v "${command_name}" >/dev/null 2>&1 || die "не найдена команда ${command_name}"
 done
+
+required_build_packages=(
+  base-devel
+  curl
+  extra-cmake-modules
+  git
+  go
+  kpmcore
+  kwin
+  libpwquality
+  plasma-wayland-protocols
+  qt6-declarative
+  vulkan-headers
+  wayland-protocols
+  yaml-cpp
+)
+mapfile -t missing_build_packages < <(pacman -T "${required_build_packages[@]}" 2>/dev/null || true)
+if (( ${#missing_build_packages[@]} > 0 )); then
+  printf 'Не установлены пакеты для сборки DE:\n' >&2
+  printf '  %s\n' "${missing_build_packages[@]}" >&2
+  printf 'Установите их командой:\n  sudo pacman -S --needed' >&2
+  printf ' %q' "${missing_build_packages[@]}" >&2
+  printf '\n' >&2
+  exit 2
+fi
 
 if (( EUID == 0 )); then
   die 'пакет рабочей среды нужно собирать обычным пользователем'

@@ -32,6 +32,10 @@ SettingsCard {
         DWS.SystemMonitorSettings {}
     }
 
+    property Component videoSettingsComponent: Component {
+        DWS.VideoSettings {}
+    }
+
     width: parent?.width ?? 400
     iconName: widgetDef?.icon ?? "widgets"
     title: widgetName
@@ -435,6 +439,8 @@ SettingsCard {
                     return clockSettingsComponent;
                 case "systemMonitor":
                     return systemMonitorSettingsComponent;
+                case "video":
+                    return videoSettingsComponent;
                 default:
                     return null;
                 }

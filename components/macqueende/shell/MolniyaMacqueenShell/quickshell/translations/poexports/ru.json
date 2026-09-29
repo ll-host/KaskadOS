@@ -9649,5 +9649,35 @@
   },
   "The test uses about 7 MB via Cloudflare and only runs when you press the button.": {
     "The test uses about 7 MB via Cloudflare and only runs when you press the button.": "Проверка использует около 7 МБ через Cloudflare и запускается только по кнопке."
+  },
+  "Video Widget": {
+    "Video Widget": "Видеовиджет"
+  },
+  "Loop a local video on your desktop": {
+    "Loop a local video on your desktop": "Зацикленное локальное видео на рабочем столе"
+  },
+  "Choose a video in widget settings": {
+    "Choose a video in widget settings": "Выберите видео в настройках виджета"
+  },
+  "Select Video": {
+    "Select Video": "Выбрать видео"
+  },
+  "Video file": {
+    "Video file": "Видеофайл"
+  },
+  "Choose a local video": {
+    "Choose a local video": "Выберите локальное видео"
+  },
+  "Play sound": {
+    "Play sound": "Воспроизводить звук"
+  },
+  "Sound is muted by default and can also be toggled on the widget": {
+    "Sound is muted by default and can also be toggled on the widget": "По умолчанию звук выключен; его можно переключить прямо на виджете"
+  },
+  "Video scaling": {
+    "Video scaling": "Масштабирование видео"
+  },
+  "Crop": {
+    "Crop": "Обрезать по краям"
   }
 }

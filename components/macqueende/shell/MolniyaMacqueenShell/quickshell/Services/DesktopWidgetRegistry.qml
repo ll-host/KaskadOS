@@ -47,6 +47,21 @@ Singleton {
                 height: 480
             }
         });
+
+        registerWidget({
+            id: "video",
+            name: I18n.tr("Video Widget", "Desktop video widget name"),
+            icon: "movie",
+            description: I18n.tr("Loop a local video on your desktop", "Desktop video widget description"),
+            type: "builtin",
+            component: "qs.Modules.BuiltinDesktopPlugins.VideoWidget",
+            settingsComponent: "qs.Modules.Settings.DesktopWidgetSettings.VideoSettings",
+            defaultConfig: getDefaultVideoConfig(),
+            defaultSize: {
+                width: 480,
+                height: 270
+            }
+        });
     }
 
     function getDefaultClockConfig() {
@@ -83,6 +98,16 @@ Singleton {
             topProcessSortBy: "cpu",
             layoutMode: "auto",
             graphInterval: 60,
+            displayPreferences: ["all"]
+        };
+    }
+
+    function getDefaultVideoConfig() {
+        return {
+            videoPath: "",
+            muted: true,
+            opacity: 1.0,
+            fillMode: "crop",
             displayPreferences: ["all"]
         };
     }
@@ -124,6 +149,8 @@ Singleton {
                 return getDefaultClockConfig();
             case "systemMonitor":
                 return getDefaultSystemMonitorConfig();
+            case "video":
+                return getDefaultVideoConfig();
             default:
                 return widget.defaultConfig ?? {};
             }
